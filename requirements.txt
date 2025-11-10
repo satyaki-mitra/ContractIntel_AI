@@ -1,0 +1,10 @@
+# LLM Providers
+openai>=1.0.0              # OpenAI API
+anthropic>=0.18.0          # Anthropic Claude API
+
+
+requests                 # For Ollama
+transformers             # For Legal-BERT
+sentence-transformers    # For embeddings
+torch                    # PyTorch
+
