@@ -250,20 +250,22 @@ class ContractClassifier:
         
         # Lazy load models
         self._lazy_load()
-        
+
     
     def _lazy_load(self):
-        """Lazy load models on first use"""
+        """
+        Lazy load models on first use
+        """
         if self.embedding_model is None:
             try:
                 log_info("Loading models for contract classification...")
                 
                 # Load embedding model
-                self.embedding_model = self.model_loader.load_embedding_model()
+                self.embedding_model                             = self.model_loader.load_embedding_model()
                 
                 # Load Legal-BERT
                 self.legal_bert_model, self.legal_bert_tokenizer = self.model_loader.load_legal_bert()
-                self.device = self.model_loader.device
+                self.device                                      = self.model_loader.device
                 
                 # Prepare category embeddings
                 self._prepare_category_embeddings()
@@ -271,31 +273,29 @@ class ContractClassifier:
                 log_info("Contract classifier models loaded successfully")
                 
             except Exception as e:
-                log_error(e, context={"component": "ContractClassifier", "operation": "model_loading"})
+                log_error(e, context = {"component" : "ContractClassifier", "operation" : "model_loading"})
                 raise
+
     
     def _prepare_category_embeddings(self):
-        """Pre-compute embeddings for each category template"""
+        """
+        Pre-compute embeddings for each category template
+        """
         log_info("Preparing category embeddings...")
         
         for category, config in self.CATEGORY_HIERARCHY.items():
             # Create representative template for each category
-            keywords_sample = config['keywords'][:8]  # Use top 8 keywords
-            template = (
-                f"This is a {category.replace('_', ' ')} contract agreement involving "
-                f"{', '.join(keywords_sample)}."
-            )
+            keywords_sample                    = config['keywords']  
+            template                           = (f"This is a {category.replace('_', ' ')} contract agreement involving {', '.join(keywords_sample)}.")
             
             # Encode template
-            embedding = self.embedding_model.encode(template, convert_to_tensor=True)
+            embedding                          = self.embedding_model.encode(template, convert_to_tensor = True)
             self.category_embeddings[category] = embedding
         
         log_info(f"Prepared embeddings for {len(self.category_embeddings)} categories")
     
-    # =========================================================================
-    # MAIN CLASSIFICATION METHOD
-    # =========================================================================
     
+    # MAIN CLASSIFICATION METHOD
     @ContractAnalyzerLogger.log_execution_time("classify_contract")
     def classify_contract(self, contract_text: str, min_confidence: float = 0.50) -> ContractCategory:
         """
