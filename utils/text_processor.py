@@ -1,16 +1,16 @@
-"""
-Advanced Text Processing with NLP capabilities
-Handles sentence splitting, entity extraction, chunking, and deduplication
-"""
-
+# DEPENDENCIES
 import re
-from typing import List, Dict, Any, Optional
+from typing import Any
+from typing import List
+from typing import Dict
+from typing import Optional
 from difflib import SequenceMatcher
 
 # Advanced NLP (optional but recommended)
 try:
     import spacy
     SPACY_AVAILABLE = True
+
 except ImportError:
     SPACY_AVAILABLE = False
     print("[TextProcessor] spaCy not available. Install with: pip install spacy && python -m spacy download en_core_web_sm")
@@ -19,37 +19,38 @@ except ImportError:
 try:
     from langdetect import detect, LangDetectException
     LANGDETECT_AVAILABLE = True
+    
 except ImportError:
     LANGDETECT_AVAILABLE = False
 
 
 class TextProcessor:
-    """Advanced text processing and normalization utilities"""
-    
+    """
+    Text processing and normalization utilities
+    """
     def __init__(self, use_spacy: bool = True):
         """
         Initialize text processor
         
-        Args:
-            use_spacy: Whether to use spaCy for advanced NLP (if available)
+        Arguments:
+        ----------
+            use_spacy { bool } : Whether to use spaCy for advanced NLP (if available)
         """
         self.nlp = None
         
         if use_spacy and SPACY_AVAILABLE:
             try:
                 self.nlp = spacy.load("en_core_web_sm")
+
                 print("[TextProcessor] spaCy model loaded successfully")
+            
             except OSError:
                 print("[TextProcessor] spaCy model not found. Run: python -m spacy download en_core_web_sm")
                 self.nlp = None
     
-    # =========================================================================
-    # BASIC TEXT NORMALIZATION
-    # =========================================================================
-    
+
     @staticmethod
-    def normalize_text(text: str, lowercase: bool = True, 
-                      remove_special_chars: bool = False) -> str:
+    def normalize_text(text: str, lowercase: bool = True, remove_special_chars: bool = False) -> str:
         """
         Normalize text for analysis
         

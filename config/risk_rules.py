@@ -1,144 +1,103 @@
-from typing import Dict, List, Tuple
+# DEPENDENCIES
 from enum import Enum
+from typing import Dict
+from typing import List
+from typing import Tuple
+
 
 class ContractType(Enum):
-    EMPLOYMENT = "employment"
-    CONSULTING = "consulting"
-    NDA = "nda"
-    SOFTWARE = "software"
-    SERVICE = "service"
+    EMPLOYMENT  = "employment"
+    CONSULTING  = "consulting"
+    NDA         = "nda"
+    SOFTWARE    = "software"
+    SERVICE     = "service"
     PARTNERSHIP = "partnership"
-    LEASE = "lease"
-    PURCHASE = "purchase"
-    GENERAL = "general"
+    LEASE       = "lease"
+    PURCHASE    = "purchase"
+    GENERAL     = "general"
 
 
 class RiskRules:
-    """Comprehensive risk scoring rules without ML training"""
-    
+    """
+    Comprehensive risk scoring rules without ML training
+    """
     # =========================================================================
     # CATEGORY WEIGHTS (Base weights, adjusted by contract type)
     # =========================================================================
     
-    CATEGORY_WEIGHTS = {
-        "restrictive_covenants": 25,
-        "termination_rights": 20,
-        "penalties_liability": 20,
-        "compensation_benefits": 15,
-        "intellectual_property": 20
-    }
+    CATEGORY_WEIGHTS          = {"restrictive_covenants" : 25,
+                                 "termination_rights"    : 20,
+                                 "penalties_liability"   : 20,
+                                 "compensation_benefits" : 15,
+                                 "intellectual_property" : 20,
+                                }
     
     # Contract-specific weight adjustments
-    CONTRACT_TYPE_ADJUSTMENTS = {
-        ContractType.EMPLOYMENT: {
-            "restrictive_covenants": 1.3,  # Higher importance
-            "compensation_benefits": 1.4,
-            "termination_rights": 1.2
-        },
-        ContractType.SOFTWARE: {
-            "intellectual_property": 1.5,
-            "penalties_liability": 1.3
-        },
-        ContractType.NDA: {
-            "restrictive_covenants": 1.8,
-            "penalties_liability": 1.2
-        }
-    }
+    CONTRACT_TYPE_ADJUSTMENTS = {ContractType.EMPLOYMENT : {"restrictive_covenants" : 1.3,  "compensation_benefits": 1.4, "termination_rights": 1.2},
+                                 ContractType.SOFTWARE   : {"intellectual_property" : 1.5, "penalties_liability" : 1.3}, 
+                                 ContractType.NDA        : {"restrictive_covenants" : 1.8, "penalties_liability" : 1.2},
+                                }
     
-    # =========================================================================
     # KEYWORD SEVERITY SCORING (Multi-tier system)
-    # =========================================================================
-    
     # Critical keywords (Tier 1: 20-25 points each)
-    CRITICAL_KEYWORDS = {
-        "non-compete": 25,
-        "non-solicit": 23,
-        "non-solicitation": 23,
-        "forfeit": 25,
-        "liquidated damages": 24,
-        "wage withholding": 25,
-        "unlimited liability": 25,
-        "joint and several": 23,
-        "perpetual": 22,
-        "irrevocable": 20
-    }
+    CRITICAL_KEYWORDS         = {"non-compete"         : 25,
+                                 "non-solicit"         : 23,
+                                 "non-solicitation"    : 23,
+                                 "forfeit"             : 25,
+                                 "liquidated damages"  : 24,
+                                 "wage withholding"    : 25,
+                                 "unlimited liability" : 25,
+                                 "joint and several"   : 23,
+                                 "perpetual"           : 22,
+                                 "irrevocable"         : 20,
+                                }
     
     # High-risk keywords (Tier 2: 12-18 points)
-    HIGH_RISK_KEYWORDS = {
-        "indemnify": 18,
-        "indemnification": 18,
-        "hold harmless": 17,
-        "penalty": 18,
-        "damages": 15,
-        "breach": 15,
-        "default": 14,
-        "immediate termination": 16,
-        "without cause": 15,
-        "sole discretion": 17,
-        "at-will": 14,
-        "waive": 16,
-        "release": 15
-    }
+    HIGH_RISK_KEYWORDS        = {"indemnify"             : 18,
+                                 "indemnification"       : 18,
+                                 "hold harmless"         : 17,
+                                 "penalty"               : 18,
+                                 "damages"               : 15,
+                                 "breach"                : 15,
+                                 "default"               : 14,
+                                 "immediate termination" : 16,
+                                 "without cause"         : 15,
+                                 "sole discretion"       : 17,
+                                 "at-will"               : 14,
+                                 "waive"                 : 16,
+                                 "release"               : 15,
+                                }
     
     # Medium-risk keywords (Tier 3: 6-10 points)
-    MEDIUM_RISK_KEYWORDS = {
-        "confidential": 8,
-        "proprietary": 8,
-        "trade secret": 10,
-        "terminate": 7,
-        "termination": 7,
-        "assignment": 6,
-        "exclusive": 9,
-        "warranty": 8,
-        "representation": 7,
-        "covenant": 8,
-        "jurisdiction": 6,
-        "governing law": 6
-    }
-    
-    # =========================================================================
+    MEDIUM_RISK_KEYWORDS      = {"confidential"   : 8,
+                                 "proprietary"    : 8,
+                                 "trade secret"   : 10,
+                                 "terminate"      : 7,
+                                 "termination"    : 7,
+                                 "assignment"     : 6,
+                                 "exclusive"      : 9,
+                                 "warranty"       : 8,
+                                 "representation" : 7,
+                                 "covenant"       : 8,
+                                 "jurisdiction"   : 6,
+                                 "governing law"  : 6,
+                                }
+
     # STRUCTURAL PATTERN ANALYSIS (Pattern-based risk detection)
-    # =========================================================================
-    
-    RISKY_PATTERNS = [
-        # Pattern: (regex, risk_points, description)
-        (r'\d+\s*(year|yr|month|mo)s?\s*(non-compete|non-solicit)', 20, 
-         "Long duration restrictive covenant"),
-        
-        (r'(entire|all|worldwide|global)\s*(industry|market|territory)', 18,
-         "Overly broad geographic/industry scope"),
-        
-        (r'notice\s+period.*\d+\s*days.*employee.*\d+\s*days.*employer', 15,
-         "Unequal notice periods"),
-        
-        (r'(may|can|shall)\s+(withhold|deduct|retain).*compensation', 22,
-         "Wage withholding clause"),
-        
-        (r'(unlimited|no\s+limit|without\s+limitation).*liability', 25,
-         "Unlimited liability exposure"),
-        
-        (r'(sole|absolute|unfettered)\s+discretion', 18,
-         "One-sided discretionary power"),
-        
-        (r'penalty.*(?:equal\s+to|of|amount).*\$?\d+', 16,
-         "Specific penalty amount"),
-        
-        (r'(automatically|immediately)\s+(renew|extend)', 12,
-         "Auto-renewal clause"),
-        
-        (r'waive.*right.*arbitration', 20,
-         "Arbitration rights waiver"),
-        
-        (r'(all|any).*intellectual\s+property.*created', 17,
-         "Broad IP assignment"),
-    ]
-    
-    # =========================================================================
+    RISKY_PATTERNS            = [(r'\d+\s*(year|yr|month|mo)s?\s*(non-compete|non-solicit)', 20, "Long duration restrictive covenant"),
+                                 (r'(entire|all|worldwide|global)\s*(industry|market|territory)', 18, "Overly broad geographic/industry scope"),
+                                 (r'notice\s+period.*\d+\s*days.*employee.*\d+\s*days.*employer', 15, "Unequal notice periods"),
+                                 (r'(may|can|shall)\s+(withhold|deduct|retain).*compensation', 22, "Wage withholding clause"),
+                                 (r'(unlimited|no\s+limit|without\s+limitation).*liability', 25, "Unlimited liability exposure"),
+                                 (r'(sole|absolute|unfettered)\s+discretion', 18, "One-sided discretionary power"),
+                                 (r'penalty.*(?:equal\s+to|of|amount).*\$?\d+', 16, "Specific penalty amount"),
+                                 (r'(automatically|immediately)\s+(renew|extend)', 12, "Auto-renewal clause"),
+                                 (r'waive.*right.*arbitration', 20, "Arbitration rights waiver"),
+                                 (r'(all|any).*intellectual\s+property.*created', 17, "Broad IP assignment"),
+                                ]
+
     # CLAUSE-LEVEL RISK FACTORS (Detailed clause analysis)
-    # =========================================================================
-    
-    CLAUSE_RISK_FACTORS = {
-        "non-compete": {
+    CLAUSE_RISK_FACTORS       = {"non-compete": {
             "base_risk": 70,
             "duration_check": {
                 # months: risk_adjustment

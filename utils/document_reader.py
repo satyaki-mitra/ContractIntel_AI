@@ -217,7 +217,7 @@ class DocumentReader:
         """
         try:
             # Handle both file paths and bytes
-            if isinstance(file_or_bytes, (str, Path)):
+            if (isinstance(file_or_bytes, (str, Path))):
                 doc = Document(file_or_bytes)
             
             else:
@@ -228,7 +228,7 @@ class DocumentReader:
             
             # Extract paragraphs
             for paragraph in doc.paragraphs:
-                if paragraph.text.strip():
+                if (paragraph.text.strip()):
                     clean_text = DocumentReader._clean_extracted_text(text = paragraph.text)
                     text      += clean_text + "\n"
             
@@ -335,7 +335,9 @@ class DocumentReader:
                 else:
                     file_path_or_bytes.seek(0)
                     file_content = file_path_or_bytes.read()
-                    doc          = fitz.open(stream=file_content, filetype="pdf")
+                    doc          = fitz.open(stream   = file_content, 
+                                             filetype = "pdf",
+                                            )
                 
                 metadata.update({"pages"    : doc.page_count,
                                  "title"    : doc.metadata.get("title", ""),
@@ -348,7 +350,7 @@ class DocumentReader:
                 doc.close()
             
             elif (file_type in ["docx", "doc"]):
-                if isinstance(file_path_or_bytes, (str, Path)):
+                if (isinstance(file_path_or_bytes, (str, Path))):
                     doc = Document(file_path_or_bytes)
                 
                 else:
