@@ -1,47 +1,49 @@
-"""
-Advanced Contract Classifier using Legal-BERT + Semantic Similarity
-Provides hierarchical categorization with confidence scores and multi-label support
-"""
-
+# DEPENDENCIES
 import re
-from typing import Tuple, Dict, List, Optional, Any
-from dataclasses import dataclass
-import numpy as np
-from sentence_transformers import util
+import sys
 import torch
+import numpy as np
+from typing import Any
+from typing import List
+from typing import Dict
+from typing import Tuple
+from pathlib import Path
+from typing import Optional
+from dataclasses import dataclass
+from sentence_transformers import util
 
 # Import utilities
-import sys
-from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.logger import ContractAnalyzerLogger, log_info, log_error
+from utils.logger import log_info
+from utils.logger import log_error
 from utils.text_processor import TextProcessor
+from utils.logger import ContractAnalyzerLogger
 
 
 @dataclass
 class ContractCategory:
-    """Contract classification result with metadata"""
-    category: str
-    subcategory: Optional[str]
-    confidence: float
-    reasoning: List[str]
-    detected_keywords: List[str]
-    alternative_categories: List[Tuple[str, float]] = None  # (category, confidence) pairs
+    """
+    Contract classification result with metadata
+    """
+    category               : str
+    subcategory            : Optional[str]
+    confidence             : float
+    reasoning              : List[str]
+    detected_keywords      : List[str]
+    alternative_categories : List[Tuple[str, float]] = None  # (category, confidence) pairs
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            "category": self.category,
-            "subcategory": self.subcategory,
-            "confidence": round(self.confidence, 3),
-            "reasoning": self.reasoning,
-            "detected_keywords": self.detected_keywords,
-            "alternative_categories": [
-                {"category": cat, "confidence": round(conf, 3)}
-                for cat, conf in (self.alternative_categories or [])
-            ]
-        }
+        """
+        Convert to dictionary for serialization
+        """
+        return {"category"               : self.category,
+                "subcategory"            : self.subcategory,
+                "confidence"             : round(self.confidence, 3),
+                "reasoning"              : self.reasoning,
+                "detected_keywords"      : self.detected_keywords,
+                "alternative_categories" : [{"category": cat, "confidence": round(conf, 3)} for cat, conf in (self.alternative_categories or [])]
+               }
 
 
 class ContractClassifier:
@@ -52,11 +54,7 @@ class ContractClassifier:
     3. Hierarchical categories (Employment -> Full-Time/Contract/Internship)
     4. Confidence scoring with explanations
     """
-    
-    # =========================================================================
     # CATEGORY HIERARCHY WITH KEYWORDS
-    # =========================================================================
-    
     CATEGORY_HIERARCHY = {
         'employment': {
             'subcategories': ['full_time', 'part_time', 'contract_worker', 'internship', 'executive'],
@@ -179,100 +177,80 @@ class ContractClassifier:
         }
     }
     
-    # =========================================================================
     # SUBCATEGORY DETECTION PATTERNS
-    # =========================================================================
-    
-    SUBCATEGORY_PATTERNS = {
-        # Employment subcategories
-        'full_time': ['full-time', 'full time', 'permanent', 'regular employee', '40 hours', 'exempt employee'],
-        'part_time': ['part-time', 'part time', 'hours per week', 'non-exempt', 'hourly employee'],
-        'contract_worker': ['independent contractor', 'contract', 'fixed term', 'temporary', 'contract period'],
-        'internship': ['intern', 'internship', 'student', 'training program', 'educational'],
-        'executive': ['executive', 'ceo', 'cfo', 'cto', 'president', 'vice president', 'director'],
-        
-        # Consulting subcategories
-        'independent_contractor': ['independent contractor', '1099', 'contractor', 'self-employed'],
-        'advisory': ['advisor', 'advisory', 'counsel', 'consulting services', 'expert advice'],
-        'professional_services': ['professional services', 'consulting services', 'engagement'],
-        'freelance': ['freelance', 'freelancer', 'gig', 'project-based'],
-        
-        # NDA subcategories
-        'mutual_nda': ['mutual', 'both parties', 'each party', 'reciprocal'],
-        'unilateral_nda': ['one-way', 'receiving party', 'disclosing party', 'unilateral'],
-        'confidentiality_agreement': ['confidentiality agreement', 'secrecy agreement'],
-        
-        # Real estate subcategories
-        'residential_lease': ['residential', 'apartment', 'house', 'dwelling', 'residential property'],
-        'commercial_lease': ['commercial', 'office space', 'retail space', 'commercial property'],
-        'sublease': ['sublease', 'sublet', 'subtenant'],
-        'purchase_agreement': ['purchase agreement', 'real property sale', 'deed'],
-        
-        # Financial subcategories
-        'loan': ['loan agreement', 'term loan', 'credit facility'],
-        'mortgage': ['mortgage', 'mortgagor', 'mortgagee', 'real property'],
-        'credit': ['line of credit', 'credit agreement', 'revolving credit'],
-        'investment': ['investment agreement', 'investor', 'investment'],
-        'promissory_note': ['promissory note', 'note payable'],
-        
-        # Technology subcategories
-        'saas': ['software as a service', 'saas', 'subscription', 'cloud-based'],
-        'software_license': ['software license', 'license key', 'perpetual license', 'end user license'],
-        'cloud_services': ['cloud services', 'cloud computing', 'infrastructure'],
-        'development': ['software development', 'custom development', 'development services'],
-        'api_access': ['api', 'application programming interface', 'api access'],
-        
-        # IP subcategories
-        'ip_assignment': ['assignment', 'transfer of rights', 'work for hire'],
-        'licensing': ['license', 'licensing agreement', 'license grant'],
-        'patent': ['patent', 'patent rights', 'patent license'],
-        'trademark': ['trademark', 'service mark', 'brand'],
-        'copyright': ['copyright', 'copyrighted work'],
-        
-        # Business subcategories
-        'partnership': ['partnership', 'general partnership', 'limited partnership'],
-        'joint_venture': ['joint venture', 'jv agreement'],
-        'shareholders': ['shareholders agreement', 'stock purchase', 'equity'],
-        'llc_operating': ['operating agreement', 'llc', 'limited liability company'],
-        'merger': ['merger', 'acquisition', 'm&a', 'consolidation'],
-        
-        # Sales subcategories
-        'purchase_order': ['purchase order', 'po', 'order confirmation'],
-        'sales_agreement': ['sales agreement', 'purchase agreement'],
-        'distribution': ['distribution agreement', 'distributor', 'distribution rights'],
-        'supply_agreement': ['supply agreement', 'supplier agreement'],
-        
-        # Service agreement subcategories
-        'master_services': ['master services agreement', 'msa', 'master agreement'],
-        'maintenance': ['maintenance agreement', 'maintenance services'],
-        'support': ['support agreement', 'technical support', 'customer support'],
-        'subscription': ['subscription agreement', 'subscription service']
-    }
-    
+    SUBCATEGORY_PATTERNS = {'full_time'                 : ['full-time', 'full time', 'permanent', 'regular employee', '40 hours', 'exempt employee'],
+                            'part_time'                 : ['part-time', 'part time', 'hours per week', 'non-exempt', 'hourly employee'],
+                            'contract_worker'           : ['independent contractor', 'contract', 'fixed term', 'temporary', 'contract period'],
+                            'internship'                : ['intern', 'internship', 'student', 'training program', 'educational'],
+                            'executive'                 : ['executive', 'ceo', 'cfo', 'cto', 'president', 'vice president', 'director'],
+                            'independent_contractor'    : ['independent contractor', '1099', 'contractor', 'self-employed'],
+                            'advisory'                  : ['advisor', 'advisory', 'counsel', 'consulting services', 'expert advice'],
+                            'professional_services'     : ['professional services', 'consulting services', 'engagement'],
+                            'freelance'                 : ['freelance', 'freelancer', 'gig', 'project-based'],
+                            'mutual_nda'                : ['mutual', 'both parties', 'each party', 'reciprocal'],
+                            'unilateral_nda'            : ['one-way', 'receiving party', 'disclosing party', 'unilateral'],
+                            'confidentiality_agreement' : ['confidentiality agreement', 'secrecy agreement'],
+                            'residential_lease'         : ['residential', 'apartment', 'house', 'dwelling', 'residential property'],
+                            'commercial_lease'          : ['commercial', 'office space', 'retail space', 'commercial property'],
+                            'sublease'                  : ['sublease', 'sublet', 'subtenant'],
+                            'purchase_agreement'        : ['purchase agreement', 'real property sale', 'deed'],
+                            'loan'                      : ['loan agreement', 'term loan', 'credit facility'],
+                            'mortgage'                  : ['mortgage', 'mortgagor', 'mortgagee', 'real property'],
+                            'credit'                    : ['line of credit', 'credit agreement', 'revolving credit'],
+                            'investment'                : ['investment agreement', 'investor', 'investment'],
+                            'promissory_note'           : ['promissory note', 'note payable'],
+                            'saas'                      : ['software as a service', 'saas', 'subscription', 'cloud-based'],
+                            'software_license'          : ['software license', 'license key', 'perpetual license', 'end user license'],
+                            'cloud_services'            : ['cloud services', 'cloud computing', 'infrastructure'],
+                            'development'               : ['software development', 'custom development', 'development services'],
+                            'api_access'                : ['api', 'application programming interface', 'api access'],
+                            'ip_assignment'             : ['assignment', 'transfer of rights', 'work for hire'],
+                            'licensing'                 : ['license', 'licensing agreement', 'license grant'],
+                            'patent'                    : ['patent', 'patent rights', 'patent license'],
+                            'trademark'                 : ['trademark', 'service mark', 'brand'],
+                            'copyright'                 : ['copyright', 'copyrighted work'],
+                            'partnership'               : ['partnership', 'general partnership', 'limited partnership'],
+                            'joint_venture'             : ['joint venture', 'jv agreement'],
+                            'shareholders'              : ['shareholders agreement', 'stock purchase', 'equity'],
+                            'llc_operating'             : ['operating agreement', 'llc', 'limited liability company'],
+                            'merger'                    : ['merger', 'acquisition', 'm&a', 'consolidation'],
+                            'purchase_order'            : ['purchase order', 'po', 'order confirmation'],
+                            'sales_agreement'           : ['sales agreement', 'purchase agreement'],
+                            'distribution'              : ['distribution agreement', 'distributor', 'distribution rights'],
+                            'supply_agreement'          : ['supply agreement', 'supplier agreement'],
+                            'master_services'           : ['master services agreement', 'msa', 'master agreement'],
+                            'maintenance'               : ['maintenance agreement', 'maintenance services'],
+                            'support'                   : ['support agreement', 'technical support', 'customer support'],
+                            'subscription'              : ['subscription agreement', 'subscription service'],
+                           }
+                        
+
     def __init__(self, model_loader):
         """
         Initialize contract classifier
         
-        Args:
-            model_loader: ModelLoader instance for accessing Legal-BERT and embeddings
+        Arguments:
+        ----------
+            model_loader : ModelLoader instance for accessing Legal-BERT and embeddings
         """
-        self.model_loader = model_loader
-        self.embedding_model = None
-        self.legal_bert_model = None
+        self.model_loader         = model_loader
+        self.embedding_model      = None
+        self.legal_bert_model     = None
         self.legal_bert_tokenizer = None
-        self.device = None
+        self.device               = None
         
         # Category template embeddings (computed once)
-        self.category_embeddings = {}
+        self.category_embeddings  = dict()
         
-        # Text processor for preprocessing
-        self.text_processor = TextProcessor(use_spacy=False)  # Don't need spaCy for classification
+        # Text processor for preprocessing : Don't need spaCy for classification
+        self.text_processor       = TextProcessor(use_spacy = False)  
         
         # Logger
-        self.logger = ContractAnalyzerLogger.get_logger()
+        self.logger               = ContractAnalyzerLogger.get_logger()
         
         # Lazy load models
         self._lazy_load()
+        
     
     def _lazy_load(self):
         """Lazy load models on first use"""
