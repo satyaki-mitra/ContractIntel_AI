@@ -7,12 +7,12 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """
-    Application-wide settings
+    Application-wide settings: primary configuration source
     """
     # Application Info
     APP_NAME               : str           = "AI Contract Risk Analyzer"
     APP_VERSION            : str           = "1.0.0"
-    API_PREFIX             : str           = "/api/"
+    API_PREFIX             : str           = "/api/v1/"
     
     # Server Configuration
     HOST                   : str           = "0.0.0.0"
@@ -28,43 +28,48 @@ class Settings(BaseSettings):
     
     # File Upload Settings
     MAX_UPLOAD_SIZE        : int           = 10 * 1024 * 1024  # 10 MB
-    ALLOWED_EXTENSIONS     : list          = [".pdf", ".docx"]
+    ALLOWED_EXTENSIONS     : list          = [".pdf", ".docx", ".txt"]
     UPLOAD_DIR             : Path          = Path("uploads")
     
-    # Model Settings
-    MODEL_CACHE_SIZE       : int            = 3    # Number of models to keep in memory
-    MODEL_DOWNLOAD_TIMEOUT : int            = 300  # 5 minutes
-    USE_GPU                : bool           = True # Automatically detect and use GPU if available
+    # Model Management Settings
+    MODEL_CACHE_SIZE       : int           = 3     # Number of models to keep in memory
+    MODEL_DOWNLOAD_TIMEOUT : int           = 1800  # 30 minutes
+    USE_GPU                : bool          = True  # Automatically detect and use GPU if available
     
-    # Ollama Settings
-    OLLAMA_BASE_URL        : str            = "http://localhost:11434"
-    OLLAMA_MODEL           : str            = "llama3:8b"
-    OLLAMA_TIMEOUT         : int            = 120
-    OLLAMA_TEMPERATURE     : float          = 0.1
+    # External API Settings
+    OLLAMA_BASE_URL        : str           = "http://localhost:11434"
+    OLLAMA_MODEL           : str           = "llama3:8b"
+    OLLAMA_TIMEOUT         : int           = 300
+    OLLAMA_TEMPERATURE     : float         = 0.1
     
-    # Analysis Settings
-    MIN_CONTRACT_LENGTH    : int            = 300    # Minimum characters for valid contract
-    MAX_CONTRACT_LENGTH    : int            = 500000 # Maximum characters (500KB text)
-    MAX_CLAUSES_TO_ANALYZE : int            = 15
+    # External API Keys
+    OPENAI_API_KEY         : Optional[str] = None
+    ANTHROPIC_API_KEY      : Optional[str] = None
     
-    # Logging
-    LOG_LEVEL              : str            = "INFO"
-    LOG_FORMAT             : str            = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    # Analysis Limits
+    MIN_CONTRACT_LENGTH    : int           = 300    # Minimum characters for valid contract
+    MAX_CONTRACT_LENGTH    : int           = 500000 # Maximum characters (500KB text)
+    MAX_CLAUSES_TO_ANALYZE : int           = 15
+    
+    # Logging Settings
+    LOG_LEVEL              : str           = "INFO"
+    LOG_FORMAT             : str           = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     LOG_FILE               : Optional[Path] = Path("logs/app.log")
     
     # Cache Settings
-    ENABLE_CACHE           : bool           = True
-    CACHE_TTL              : int            = 3600 # 1 hour
-    CACHE_DIR              : Path           = Path("cache")
+    ENABLE_CACHE           : bool          = True
+    CACHE_TTL              : int           = 3600 # 1 hour
+    CACHE_DIR              : Path          = Path("cache")
     
-    # Rate Limiting
-    RATE_LIMIT_ENABLED     : bool           = True
-    RATE_LIMIT_REQUESTS    : int            = 10
-    RATE_LIMIT_PERIOD      : int            = 60  # seconds
+    # Rate Limiting Settings
+    RATE_LIMIT_ENABLED     : bool          = True
+    RATE_LIMIT_REQUESTS    : int           = 10
+    RATE_LIMIT_PERIOD      : int           = 60  # seconds
     
     # PDF Report Settings
-    PDF_FONT_SIZE          : int            = 10
-    PDF_MARGIN             : float          = 0.5 # inches
+    PDF_FONT_SIZE          : int           = 10
+    PDF_MARGIN             : float         = 0.5 # inches
+    PDF_PAGE_SIZE          : str           = "letter"
     
 
     class Config:

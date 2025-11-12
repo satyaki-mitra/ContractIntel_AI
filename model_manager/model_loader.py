@@ -58,7 +58,11 @@ class ModelLoader:
             return info.model, info.tokenizer
         
         # Mark as loading
-        self.registry.register(ModelType.LEGAL_BERT,ModelInfo(name = "legal-bert", type = ModelType.LEGAL_BERT, status = ModelStatus.LOADING))
+        self.registry.register(ModelType.LEGAL_BERT, ModelInfo(name   = "legal-bert", 
+                                                               type   = ModelType.LEGAL_BERT, 
+                                                               status = ModelStatus.LOADING,
+                                                              )
+                              )
         
         try:
             config = self.config.LEGAL_BERT

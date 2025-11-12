@@ -27,6 +27,7 @@ class ModelCache:
     def __init__(self, cache_dir: Path, ttl_seconds: int = 3600):
         self.cache_dir   = Path(cache_dir)
         self.cache_dir.mkdir(parents = True, exist_ok = True)
+        
         self.ttl_seconds = ttl_seconds
         self.logger      = ContractAnalyzerLogger.get_logger()
         

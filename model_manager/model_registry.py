@@ -54,6 +54,7 @@ class ModelInfo:
     last_accessed  : Optional[datetime] = None
     metadata       : Dict[str, Any]     = field(default_factory = dict)
     
+
     def mark_accessed(self):
         """
         Update access statistics
@@ -83,7 +84,7 @@ class ModelRegistry:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super().__new__(cls)
+                    cls._instance              = super().__new__(cls)
                     cls._instance._initialized = False
         
         return cls._instance
@@ -123,6 +124,7 @@ class ModelRegistry:
         """
         with self._model_lock:
             info = self._registry.get(model_type)
+            
             if info:
                 info.mark_accessed()
                 log_info(f"Model accessed: {model_type.value}",

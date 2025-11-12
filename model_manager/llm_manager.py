@@ -141,7 +141,7 @@ class LLMManager:
         Check if Ollama server is available
         """
         try:
-            response  = requests.get(f"{self.ollama_base_url}/api/tags", timeout=5)
+            response  = requests.get(f"{self.ollama_base_url}/api/tags", timeout = 30)
             available = (response.status_code == 200)
 
             if available:

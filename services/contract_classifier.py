@@ -232,7 +232,7 @@ class ContractClassifier:
         Arguments:
         ----------
             model_loader : ModelLoader instance for accessing Legal-BERT and embeddings
-        """
+         """
         self.model_loader         = model_loader
         self.embedding_model      = None
         self.legal_bert_model     = None
@@ -294,7 +294,7 @@ class ContractClassifier:
         
         log_info(f"Prepared embeddings for {len(self.category_embeddings)} categories")
     
-    
+
     # MAIN CLASSIFICATION METHOD
     @ContractAnalyzerLogger.log_execution_time("classify_contract")
     def classify_contract(self, contract_text: str, min_confidence: float = 0.50) -> ContractCategory:
@@ -325,103 +325,99 @@ class ContractClassifier:
             raise ValueError("Contract text too short for classification")
         
         # Preprocess text (use first 3000 chars for efficiency)
-        text_excerpt = contract_text[:3000]
+        text_excerpt = contract_text
         
         log_info("Starting contract classification", 
-                text_length=len(contract_text),
-                excerpt_length=len(text_excerpt))
+                 text_length    = len(contract_text),
+                 excerpt_length = len(text_excerpt),
+                )
         
         # Step 1: Keyword scoring
-        keyword_scores = self._score_keywords(contract_text.lower())
+        keyword_scores    = self._score_keywords(contract_text.lower())
         
         # Step 2: Semantic similarity
-        semantic_scores = self._semantic_similarity(text_excerpt)
+        semantic_scores   = self._semantic_similarity(text_excerpt)
         
         # Step 3: Legal-BERT enhanced (optional - can be expensive)
-        # legal_bert_scores = self._legal_bert_classification(text_excerpt)
+        legal_bert_scores = self._legal_bert_classification(text_excerpt)
         
         # Step 4: Combine scores (weighted average)
-        combined_scores = self._combine_scores(
-            keyword_scores=keyword_scores,
-            semantic_scores=semantic_scores,
-            # legal_bert_scores=legal_bert_scores  # Uncomment if using Legal-BERT
-        )
+        combined_scores   = self._combine_scores(keyword_scores    = keyword_scores,
+                                                 semantic_scores   = semantic_scores,
+                                                 legal_bert_scores = legal_bert_scores,
+                                                )
         
         # Step 5: Get primary category
         if not combined_scores:
             log_info("No categories detected, defaulting to 'general'")
-            return ContractCategory(
-                category="general",
-                subcategory=None,
-                confidence=0.5,
-                reasoning=["Unable to determine specific contract type"],
-                detected_keywords=[]
-            )
+            return ContractCategory(category          = "general",
+                                    subcategory       = None,
+                                    confidence        = 0.5,
+                                    reasoning         = ["Unable to determine specific contract type"],
+                                    detected_keywords = [],
+                                   )
         
-        primary_category = max(combined_scores, key=combined_scores.get)
-        confidence = combined_scores[primary_category]
+        primary_category       = max(combined_scores, key = combined_scores.get)
+        confidence             = combined_scores[primary_category]
         
         # Step 6: Detect subcategory
-        subcategory = self._detect_subcategory(contract_text, primary_category)
+        subcategory            = self._detect_subcategory(contract_text, primary_category)
         
         # Step 7: Generate reasoning
-        reasoning = self._generate_reasoning(
-            contract_text=contract_text,
-            primary_category=primary_category,
-            subcategory=subcategory,
-            keyword_scores=keyword_scores,
-            semantic_scores=semantic_scores,
-            combined_scores=combined_scores
-        )
+        reasoning              = self._generate_reasoning(contract_text    = contract_text,
+                                                    primary_category = primary_category,
+                                                    subcategory      = subcategory,
+                                                    keyword_scores   = keyword_scores,
+                                                    semantic_scores  = semantic_scores,
+                                                    combined_scores  = combined_scores,
+                                                   )
         
         # Step 8: Extract detected keywords
-        detected_keywords = self._extract_detected_keywords(contract_text, primary_category)
+        detected_keywords      = self._extract_detected_keywords(contract_text, primary_category)
         
-        # Step 9: Get alternative categories
-        alternative_categories = sorted(
-            [(cat, score) for cat, score in combined_scores.items() if cat != primary_category],
-            key=lambda x: x[1],
-            reverse=True
-        )[:3]  # Top 3 alternatives
+        # Step 9: Get alternative categories: Top 3 alternatives
+        alternative_categories = sorted([(cat, score) for cat, score in combined_scores.items() if cat != primary_category],
+                                        key     = lambda x: x[1],
+                                        reverse = True,
+                                       )[:3]
         
-        result = ContractCategory(
-            category=primary_category,
-            subcategory=subcategory,
-            confidence=confidence,
-            reasoning=reasoning,
-            detected_keywords=detected_keywords,
-            alternative_categories=alternative_categories
-        )
+        result                 = ContractCategory(category               = primary_category,
+                                                  subcategory            = subcategory,
+                                                  confidence             = confidence,
+                                                  reasoning              = reasoning,
+                                                  detected_keywords      = detected_keywords,
+                                                  alternative_categories = alternative_categories,
+                                                 )
         
         log_info("Contract classified successfully",
-                category=primary_category,
-                subcategory=subcategory,
-                confidence=confidence)
+                 category    = primary_category,
+                 subcategory = subcategory,
+                 confidence  = confidence,
+                )
         
         return result
     
-    # =========================================================================
-    # SCORING METHODS
-    # =========================================================================
     
     def _score_keywords(self, text_lower: str) -> Dict[str, float]:
         """
         Score each category based on keyword presence
         
-        Args:
-            text_lower: Lowercase contract text
+        Arguments:
+        ----------
+            text_lower { str } : Lowercase contract text
         
         Returns:
-            Dictionary of {category: score}
+        --------
+               { dict }        : Dictionary of {category: score}
         """
-        scores = {}
+        scores = dict()
         
         for category, config in self.CATEGORY_HIERARCHY.items():
-            keywords = config['keywords']
-            weight = config['weight']
+            keywords         = config['keywords']
+            weight           = config['weight']
             
             # Count keyword matches
-            keyword_count = sum(1 for keyword in keywords if keyword in text_lower)
+            keyword_count    = sum(1 for keyword in keywords if keyword in text_lower)
             
             # Normalize by number of keywords and apply weight
             normalized_score = (keyword_count / len(keywords)) * weight
@@ -430,91 +426,92 @@ class ContractClassifier:
         
         return scores
     
+
     def _semantic_similarity(self, text: str) -> Dict[str, float]:
         """
         Calculate semantic similarity to category templates using embeddings
         
-        Args:
-            text: Contract text excerpt
+        Arguments:
+        ----------
+            text { str } : Contract text excerpt
         
         Returns:
-            Dictionary of {category: similarity_score}
+        --------
+            { dict }     : Dictionary of {category: similarity_score}
         """
         # Encode contract text
-        text_embedding = self.embedding_model.encode(text, convert_to_tensor=True)
+        text_embedding = self.embedding_model.encode(text, convert_to_tensor = True)
         
         # Calculate similarity to each category
-        similarities = {}
+        similarities   = dict()
+
         for category, cat_embedding in self.category_embeddings.items():
-            similarity = util.cos_sim(text_embedding, cat_embedding)[0][0].item()
+            similarity             = util.cos_sim(text_embedding, cat_embedding)[0][0].item()
             similarities[category] = similarity
         
         return similarities
+
     
     def _legal_bert_classification(self, text: str) -> Dict[str, float]:
         """
         Use Legal-BERT for classification (optional - computationally expensive)
         
-        Args:
-            text: Contract text excerpt
+        Arguments:
+        ----------
+            text { str } : Contract text excerpt
         
         Returns:
-            Dictionary of {category: score}
+        --------
+            { dict }     : Dictionary of {category: score}
         """
-        # This is a placeholder for Legal-BERT classification
-        # In production, you'd fine-tune Legal-BERT on labeled contract data
-        
         # Tokenize
-        inputs = self.legal_bert_tokenizer(
-            text,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=512
-        ).to(self.device)
+        inputs = self.legal_bert_tokenizer(text,
+                                           return_tensors = "pt",
+                                           padding        = True,
+                                           truncation     = True,
+                                           max_length     = 512,
+                                          ).to(self.device)
         
         # Get embeddings
         with torch.no_grad():
-            outputs = self.legal_bert_model(**inputs)
+            outputs       = self.legal_bert_model(**inputs)
             cls_embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()[0]
         
-        # For now, return uniform scores (placeholder)
-        # In production, you'd use a trained classifier head
         return {cat: 0.5 for cat in self.CATEGORY_HIERARCHY.keys()}
     
-    def _combine_scores(self, keyword_scores: Dict[str, float],
-                       semantic_scores: Dict[str, float],
-                       legal_bert_scores: Dict[str, float] = None) -> Dict[str, float]:
+
+    def _combine_scores(self, keyword_scores: Dict[str, float], semantic_scores: Dict[str, float], legal_bert_scores: Dict[str, float] = None) -> Dict[str, float]:
         """
         Combine scores from different methods (weighted average)
         
-        Args:
-            keyword_scores: Keyword-based scores
-            semantic_scores: Semantic similarity scores
-            legal_bert_scores: Legal-BERT scores (optional)
+        Arguments:
+        ----------
+            keyword_scores    { dict } : Keyword-based scores
+
+            semantic_scores   { dict } : Semantic similarity scores
+            
+            legal_bert_scores { dict } : Legal-BERT scores (optional)
         
         Returns:
-            Combined scores dictionary
+        --------
+                   { dict }            : Combined scores dictionary
         """
-        combined = {}
+        combined          = dict()
         
         # Weights for each method
-        keyword_weight = 0.40
-        semantic_weight = 0.60
+        keyword_weight    = 0.40
+        semantic_weight   = 0.60
         legal_bert_weight = 0.00  # Set to 0 if not using Legal-BERT
         
         if legal_bert_scores:
             # Normalize weights
-            total_weight = keyword_weight + semantic_weight + legal_bert_weight
-            keyword_weight /= total_weight
-            semantic_weight /= total_weight
+            total_weight       = keyword_weight + semantic_weight + legal_bert_weight
+            keyword_weight    /= total_weight
+            semantic_weight   /= total_weight
             legal_bert_weight /= total_weight
         
         for category in self.CATEGORY_HIERARCHY.keys():
-            score = (
-                keyword_scores.get(category, 0) * keyword_weight +
-                semantic_scores.get(category, 0) * semantic_weight
-            )
+            score = (keyword_scores.get(category, 0) * keyword_weight + semantic_scores.get(category, 0) * semantic_weight)
             
             if legal_bert_scores:
                 score += legal_bert_scores.get(category, 0) * legal_bert_weight
@@ -523,202 +520,204 @@ class ContractClassifier:
         
         return combined
     
-    # =========================================================================
-    # SUBCATEGORY DETECTION
-    # =========================================================================
     
     def _detect_subcategory(self, text: str, primary_category: str) -> Optional[str]:
         """
         Detect specific subcategory within primary category
         
-        Args:
-            text: Full contract text
-            primary_category: Detected primary category
+        Arguments:
+        ----------
+            text             { str } : Full contract text
+
+            primary_category { str } : Detected primary category
         
         Returns:
-            Subcategory name or None
+        --------
+                  { str }            : Subcategory name or None
         """
-        text_lower = text.lower()
+        text_lower    = text.lower()
         
         # Get subcategories for this category
         subcategories = self.CATEGORY_HIERARCHY[primary_category]['subcategories']
         
         # Score each subcategory
-        subcat_scores = {}
+        subcat_scores = dict()
+
         for subcat in subcategories:
             if subcat in self.SUBCATEGORY_PATTERNS:
-                patterns = self.SUBCATEGORY_PATTERNS[subcat]
-                score = sum(1 for pattern in patterns if pattern in text_lower)
+                patterns              = self.SUBCATEGORY_PATTERNS[subcat]
+                score                 = sum(1 for pattern in patterns if pattern in text_lower)
                 subcat_scores[subcat] = score
         
         # Return best match if any
-        if subcat_scores and max(subcat_scores.values()) > 0:
-            best_subcat = max(subcat_scores, key=subcat_scores.get)
+        if (subcat_scores and (max(subcat_scores.values()) > 0)):
+            best_subcat = max(subcat_scores, key = subcat_scores.get)
             log_info(f"Detected subcategory: {best_subcat}", 
-                    category=primary_category,
-                    score=subcat_scores[best_subcat])
+                     category = primary_category,
+                     score    = subcat_scores[best_subcat],
+                    )
+
             return best_subcat
         
         return None
     
-    # =========================================================================
-    # REASONING & EXPLANATION
-    # =========================================================================
-    
-    def _generate_reasoning(self, contract_text: str, primary_category: str,
-                           subcategory: Optional[str],
-                           keyword_scores: Dict[str, float],
-                           semantic_scores: Dict[str, float],
-                           combined_scores: Dict[str, float]) -> List[str]:
+
+    def _generate_reasoning(self, contract_text: str, primary_category: str, subcategory: Optional[str], keyword_scores: Dict[str, float], semantic_scores: Dict[str, float],
+                            combined_scores: Dict[str, float]) -> List[str]:
         """
         Generate human-readable reasoning for classification
         
         Returns:
-            List of reasoning statements
+        --------
+            { list } : List of reasoning statements
         """
-        reasoning = []
+        reasoning      = list()
         
         # Primary category reasoning
-        keyword_match = keyword_scores.get(primary_category, 0)
+        keyword_match  = keyword_scores.get(primary_category, 0)
         semantic_match = semantic_scores.get(primary_category, 0)
         
-        if keyword_match > 0.5:
-            reasoning.append(
-                f"Strong keyword indicators for {primary_category.replace('_', ' ')} category "
-                f"({int(keyword_match * 100)}% keyword match)"
-            )
-        elif keyword_match > 0.3:
-            reasoning.append(
-                f"Moderate keyword presence for {primary_category.replace('_', ' ')} "
-                f"({int(keyword_match * 100)}% keyword match)"
-            )
+        if (keyword_match > 0.5):
+            reasoning.append(f"Strong keyword indicators for {primary_category.replace('_', ' ')} category "
+                             f"({int(keyword_match * 100)}% keyword match)"
+                            )
+
+        elif (keyword_match > 0.3):
+            reasoning.append(f"Moderate keyword presence for {primary_category.replace('_', ' ')} "
+                             f"({int(keyword_match * 100)}% keyword match)"
+                            )
         
-        if semantic_match > 0.65:
-            reasoning.append(
-                f"Contract language semantically similar to {primary_category.replace('_', ' ')} agreements "
-                f"(similarity: {semantic_match:.2f})"
-            )
-        elif semantic_match > 0.50:
-            reasoning.append(
-                f"Moderate semantic similarity to {primary_category.replace('_', ' ')} contracts "
-                f"(similarity: {semantic_match:.2f})"
-            )
+        if (semantic_match > 0.65):
+            reasoning.append(f"Contract language semantically similar to {primary_category.replace('_', ' ')} agreements "
+                             f"(similarity: {semantic_match:.2f})"
+                            )
+
+        elif (semantic_match > 0.50):
+            reasoning.append(f"Moderate semantic similarity to {primary_category.replace('_', ' ')} contracts "
+                             f"(similarity: {semantic_match:.2f})"
+                            )
         
         # Subcategory reasoning
         if subcategory:
-            reasoning.append(
-                f"Specific subcategory identified: {subcategory.replace('_', ' ')}"
-            )
+            reasoning.append(f"Specific subcategory identified: {subcategory.replace('_', ' ')}")
         
         # Alternative categories (if close)
-        sorted_scores = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
-        if len(sorted_scores) > 1 and sorted_scores[1][1] > 0.40:
+        sorted_scores = sorted(combined_scores.items(), key = lambda x: x[1], reverse = True)
+        
+        if ((len(sorted_scores) > 1) and (sorted_scores[1][1] > 0.40)):
             alt_category, alt_score = sorted_scores[1]
-            reasoning.append(
-                f"Also contains elements of {alt_category.replace('_', ' ')} "
-                f"(secondary match: {alt_score:.2f})"
-            )
+            
+            reasoning.append(f"Also contains elements of {alt_category.replace('_', ' ')} "
+                             f"(secondary match: {alt_score:.2f})"
+                            )
         
         # If no strong reasoning
         if not reasoning:
             reasoning.append("Classification based on general contract structure and terminology")
         
         return reasoning
+
     
     def _extract_detected_keywords(self, text: str, category: str) -> List[str]:
         """
         Extract which specific keywords were found
         
-        Args:
-            text: Contract text
-            category: Detected category
+        Arguments:
+        ----------
+            text     { str } : Contract text
+
+            category { str } : Detected category
         
         Returns:
-            List of detected keywords
+        --------
+                { list }     : List of detected keywords
         """
         text_lower = text.lower()
-        keywords = self.CATEGORY_HIERARCHY[category]['keywords']
+        keywords   = self.CATEGORY_HIERARCHY[category]['keywords']
         
-        detected = [kw for kw in keywords if kw in text_lower]
-        return detected[:10]  # Top 10 keywords
+        detected   = [kw for kw in keywords if kw in text_lower]
+
+        # Top 10 keywords
+        return detected[:10]  
     
-    # =========================================================================
-    # MULTI-LABEL CLASSIFICATION
-    # =========================================================================
     
     @ContractAnalyzerLogger.log_execution_time("classify_multi_label")
-    def classify_multi_label(self, text: str, 
-                            threshold: float = 0.45) -> List[ContractCategory]:
+    def classify_multi_label(self, text: str, threshold: float = 0.45) -> List[ContractCategory]:
         """
-        Classify as multiple categories if applicable
-        (e.g., Employment + NDA, Consulting + IP Assignment)
+        Classify as multiple categories if applicable (e.g., Employment + NDA, Consulting + IP Assignment)
         
-        Args:
-            text: Contract text
-            threshold: Minimum confidence threshold for multi-label
+        Arguments:
+        ----------
+            text       { str }  : Contract text
+
+            threshold { float } : Minimum confidence threshold for multi-label
         
         Returns:
-            List of ContractCategory objects (sorted by confidence)
+        --------
+                 { list }       : List of ContractCategory objects (sorted by confidence)
         """
-        log_info("Starting multi-label classification", threshold=threshold)
+        log_info("Starting multi-label classification", threshold = threshold)
         
         # Get scores
-        keyword_scores = self._score_keywords(text.lower())
-        semantic_scores = self._semantic_similarity(text[:3000])
+        keyword_scores  = self._score_keywords(text.lower())
+        semantic_scores = self._semantic_similarity(text)
         combined_scores = self._combine_scores(keyword_scores, semantic_scores)
         
         # Get all categories above threshold
-        matches = []
+        matches         = list()
+
         for category, score in combined_scores.items():
-            if score >= threshold:
+            if (score >= threshold):
                 subcategory = self._detect_subcategory(text, category)
-                reasoning = self._generate_reasoning(
-                    text, category, subcategory,
-                    keyword_scores, semantic_scores, combined_scores
-                )
-                keywords = self._extract_detected_keywords(text, category)
+                reasoning   = self._generate_reasoning(text, category, subcategory, keyword_scores, semantic_scores, combined_scores)
+                keywords    = self._extract_detected_keywords(text, category)
                 
-                matches.append(ContractCategory(
-                    category=category,
-                    subcategory=subcategory,
-                    confidence=score,
-                    reasoning=reasoning,
-                    detected_keywords=keywords
-                ))
+                matches.append(ContractCategory(category          = category,
+                                                subcategory       = subcategory,
+                                                confidence        = score,
+                                                reasoning         = reasoning,
+                                                detected_keywords = keywords,
+                                               )
+                              )
         
         # Sort by confidence
-        matches.sort(key=lambda x: x.confidence, reverse=True)
+        matches.sort(key = lambda x: x.confidence, reverse = True)
         
         log_info(f"Multi-label classification found {len(matches)} categories")
         
         return matches if matches else [self.classify_contract(text)]
     
-    # =========================================================================
-    # UTILITY METHODS
-    # =========================================================================
-    
+
     def get_category_description(self, category: str) -> str:
-        """Get human-readable description of a category"""
-        descriptions = {
-            'employment': 'Employment agreements governing employer-employee relationships',
-            'consulting': 'Consulting and independent contractor agreements',
-            'nda': 'Non-disclosure and confidentiality agreements',
-            'technology': 'Software licensing and technology service agreements',
-            'intellectual_property': 'IP assignment, licensing, and protection agreements',
-            'real_estate': 'Property lease, rental, and purchase agreements',
-            'financial': 'Loan, credit, and financial service agreements',
-            'business': 'Partnership, joint venture, and corporate agreements',
-            'sales': 'Sales, purchase, and distribution agreements',
-            'service_agreement': 'Professional service and maintenance agreements',
-            'vendor': 'Vendor, supplier, and procurement agreements',
-            'agency': 'Agency and representation agreements'
-        }
+        """
+        Get human-readable description of a category
+        """
+        descriptions = {'employment'            : 'Employment agreements governing employer-employee relationships',
+                        'consulting'            : 'Consulting and independent contractor agreements',
+                        'nda'                   : 'Non-disclosure and confidentiality agreements',
+                        'technology'            : 'Software licensing and technology service agreements',
+                        'intellectual_property' : 'IP assignment, licensing, and protection agreements',
+                        'real_estate'           : 'Property lease, rental, and purchase agreements',
+                        'financial'             : 'Loan, credit, and financial service agreements',
+                        'business'              : 'Partnership, joint venture, and corporate agreements',
+                        'sales'                 : 'Sales, purchase, and distribution agreements',
+                        'service_agreement'     : 'Professional service and maintenance agreements',
+                        'vendor'                : 'Vendor, supplier, and procurement agreements',
+                        'agency'                : 'Agency and representation agreements',
+                       }
+
         return descriptions.get(category, 'General contract agreement')
+
     
     def get_all_categories(self) -> List[str]:
-        """Get list of all supported categories"""
+        """
+        Get list of all supported categories
+        """
         return list(self.CATEGORY_HIERARCHY.keys())
     
+
     def get_subcategories(self, category: str) -> List[str]:
-        """Get subcategories for a specific category"""
+        """
+        Get subcategories for a specific category
+        """
         return self.CATEGORY_HIERARCHY.get(category, {}).get('subcategories', [])
