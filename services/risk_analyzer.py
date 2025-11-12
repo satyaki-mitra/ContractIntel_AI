@@ -1,70 +1,82 @@
-"""
-Multi-Factor Risk Analyzer with sophisticated rule-based scoring
-Analyzes contracts using keyword severity, structural patterns, clause-level analysis,
-industry benchmarks, and missing protections detection
-"""
-
+# DEPENDENCIES
 import re
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass, field
-from collections import defaultdict
 import sys
+from typing import Any
+from typing import List
+from typing import Dict
+from typing import Tuple
 from pathlib import Path
+from typing import Optional
+from dataclasses import field
+from dataclasses import dataclass 
+from collections import defaultdict
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config.risk_rules import RiskRules, ContractType
-from services.clause_extractor import ExtractedClause
-from utils.logger import ContractAnalyzerLogger, log_info, log_error
+from utils.logger import log_info
+from utils.logger import log_error
+from config.risk_rules import RiskRules
+from config.risk_rules import ContractType
 from utils.text_processor import TextProcessor
+from utils.logger import ContractAnalyzerLogger
+from services.clause_extractor import ExtractedClause
+
 
 
 @dataclass
 class RiskBreakdownItem:
-    """Individual risk category breakdown"""
-    category: str
-    score: int  # 0-100
-    summary: str
-    findings: List[str] = field(default_factory=list)
+    """
+    Individual risk category breakdown
+    """
+    category : str
+    score    : int  # 0-100
+    summary  : str
+    findings : List[str] = field(default_factory=list)
     
+
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return {
-            "category": self.category,
-            "score": self.score,
-            "summary": self.summary,
-            "findings": self.findings
-        }
+        """
+        Convert to dictionary
+        """
+        return {"category" : self.category,
+                "score"    : self.score,
+                "summary"  : self.summary,
+                "findings" : self.findings,
+               }
 
 
 @dataclass
 class RiskScore:
-    """Comprehensive risk score with detailed breakdown"""
-    overall_score: int  # 0-100
-    risk_level: str  # "CRITICAL", "HIGH", "MEDIUM", "LOW"
-    category_scores: Dict[str, int]
-    risk_factors: List[str]
-    detailed_findings: Dict[str, List[str]]
-    benchmark_comparison: Dict[str, str]
-    risk_breakdown: List[RiskBreakdownItem]
+    """
+    Comprehensive risk score with detailed breakdown
+    """
+    overall_score        : int            # 0-100
+    risk_level           : str            # "CRITICAL", "HIGH", "MEDIUM", "LOW"
+    category_scores      : Dict[str, int]
+    risk_factors         : List[str]
+    detailed_findings    : Dict[str, List[str]]
+    benchmark_comparison : Dict[str, str]
+    risk_breakdown       : List[RiskBreakdownItem]
     
+
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            "overall_score": self.overall_score,
-            "risk_level": self.risk_level,
-            "category_scores": self.category_scores,
-            "risk_factors": self.risk_factors,
-            "detailed_findings": self.detailed_findings,
-            "benchmark_comparison": self.benchmark_comparison,
-            "risk_breakdown": [item.to_dict() for item in self.risk_breakdown]
-        }
+        """
+        Convert to dictionary for serialization
+        """
+        return {"overall_score"        : self.overall_score,
+                "risk_level"           : self.risk_level,
+                "category_scores"      : self.category_scores,
+                "risk_factors"         : self.risk_factors,
+                "detailed_findings"    : self.detailed_findings,
+                "benchmark_comparison" : self.benchmark_comparison,
+                "risk_breakdown"       : [item.to_dict() for item in self.risk_breakdown],
+               }
 
 
 class MultiFactorRiskAnalyzer:
     """
-    Sophisticated multi-factor risk analysis engine
+    Multi-factor risk analysis engine
     
     Analysis Factors:
     1. Keyword severity scoring (critical/high/medium keywords)
@@ -74,353 +86,386 @@ class MultiFactorRiskAnalyzer:
     5. Missing protections check
     6. Contract type-specific weight adjustments
     """
-    
     def __init__(self, contract_type: ContractType = ContractType.GENERAL):
         """
         Initialize risk analyzer
         
-        Args:
-            contract_type: Type of contract for specialized analysis
+        Arguments:
+        ----------
+            contract_type { ContractType } : Type of contract for specialized analysis
         """
-        self.contract_type = contract_type
-        self.rules = RiskRules()
+        self.contract_type    = contract_type
+        self.rules            = RiskRules()
         self.adjusted_weights = self.rules.get_adjusted_weights(contract_type)
-        self.text_processor = TextProcessor(use_spacy=False)
-        self.logger = ContractAnalyzerLogger.get_logger()
+        self.text_processor   = TextProcessor(use_spacy = True)
+        self.logger           = ContractAnalyzerLogger.get_logger()
         
         log_info("MultiFactorRiskAnalyzer initialized",
-                contract_type=contract_type.value,
-                adjusted_weights=self.adjusted_weights)
+                 contract_type    = contract_type.value,
+                 adjusted_weights = self.adjusted_weights,
+                )
     
-    # =========================================================================
-    # MAIN ANALYSIS METHOD
-    # =========================================================================
-    
+
     @ContractAnalyzerLogger.log_execution_time("analyze_risk")
-    def analyze_risk(self, contract_text: str, 
-                    clauses: List[ExtractedClause]) -> RiskScore:
+    def analyze_risk(self, contract_text: str, clauses: List[ExtractedClause]) -> RiskScore:
         """
         Comprehensive multi-factor risk analysis
         
-        Args:
-            contract_text: Full contract text
-            clauses: Extracted clauses from ClauseExtractor
+        Arguments:
+        ----------
+            contract_text { str } : Full contract text
+
+            clauses      { list } : Extracted clauses from ClauseExtractor
         
         Returns:
-            RiskScore object with detailed analysis
+        --------
+               { RiskScore }      : RiskScore object with detailed analysis
         """
         
-        log_info("Starting risk analysis",
-                text_length=len(contract_text),
-                num_clauses=len(clauses),
-                contract_type=self.contract_type.value)
+        log_info("Starting risk analysis", text_length = len(contract_text), num_clauses = len(clauses), contract_type = self.contract_type.value)
         
         # Initialize scoring containers
-        category_scores = defaultdict(list)
-        risk_factors = []
-        detailed_findings = defaultdict(list)
+        category_scores      = defaultdict(list)
+        detailed_findings    = defaultdict(list)
+        risk_factors         = list()
         
-        # Factor 1: Keyword Severity Scoring
-        keyword_risks = self._score_keywords(contract_text)
-        log_info("Keyword analysis complete", 
-                critical_score=keyword_risks.get('critical', 0),
-                high_score=keyword_risks.get('high', 0))
+        # Keyword Severity Scoring
+        keyword_risks        = self._score_keywords(contract_text)
+        log_info("Keyword analysis complete", critical_score = keyword_risks.get('critical', 0), high_score = keyword_risks.get('high', 0))
         
-        # Factor 2: Structural Pattern Analysis
-        pattern_risks = self._analyze_patterns(contract_text)
+        # Structural Pattern Analysis
+        pattern_risks        = self._analyze_patterns(contract_text)
         log_info(f"Pattern analysis found {len(pattern_risks)} risky patterns")
         
-        # Factor 3: Clause-Level Analysis
-        clause_risks = self._analyze_clauses(clauses)
+        # Clause-Level Analysis
+        clause_risks         = self._analyze_clauses(clauses)
         log_info(f"Clause analysis complete for {len(clause_risks)} categories")
         
-        # Factor 4: Missing Protections
-        missing_risks = self._check_missing_protections(contract_text, clauses)
+        # Missing Protections
+        missing_risks        = self._check_missing_protections(contract_text, clauses)
         log_info(f"Missing protections analysis complete")
         
-        # Factor 5: Industry Benchmark Comparison
+        # Industry Benchmark Comparison
         benchmark_comparison = self._compare_to_benchmarks(contract_text, clauses)
         log_info(f"Benchmark comparison complete")
         
         # Aggregate scores by category
         for category in self.adjusted_weights.keys():
-            category_risk = self._calculate_category_risk(
-                category=category,
-                keyword_risks=keyword_risks,
-                pattern_risks=pattern_risks,
-                clause_risks=clause_risks,
-                missing_risks=missing_risks,
-                benchmark_comparison=benchmark_comparison
-            )
-            category_scores[category] = category_risk["score"]
+            category_risk               = self._calculate_category_risk(category             = category,
+                                                                        keyword_risks        = keyword_risks,
+                                                                        pattern_risks        = pattern_risks,
+                                                                        clause_risks         = clause_risks,
+                                                                        missing_risks        = missing_risks,
+                                                                        benchmark_comparison = benchmark_comparison,
+                                                                       )
+            category_scores[category]   = category_risk["score"]
             detailed_findings[category] = category_risk["findings"]
             
-            if category_risk["score"] >= self.rules.RISK_THRESHOLDS["high"]:
+            if (category_risk["score"] >= self.rules.RISK_THRESHOLDS["high"]):
                 risk_factors.append(category)
         
         # Calculate weighted overall score
-        overall_score = self._calculate_weighted_score(category_scores)
-        risk_level = self._get_risk_level(overall_score)
+        overall_score  = self._calculate_weighted_score(category_scores)
+        risk_level     = self._get_risk_level(overall_score)
         
         # Create risk breakdown items
-        risk_breakdown = self._create_risk_breakdown(
-            category_scores,
-            detailed_findings
-        )
+        risk_breakdown = self._create_risk_breakdown(category_scores, detailed_findings)
         
-        result = RiskScore(
-            overall_score=overall_score,
-            risk_level=risk_level,
-            category_scores=dict(category_scores),
-            risk_factors=risk_factors,
-            detailed_findings=dict(detailed_findings),
-            benchmark_comparison=benchmark_comparison,
-            risk_breakdown=risk_breakdown
-        )
+        result         = RiskScore(overall_score        = overall_score,
+                                   risk_level           = risk_level,
+                                   category_scores      = dict(category_scores),
+                                   risk_factors         = risk_factors,
+                                   detailed_findings    = dict(detailed_findings),
+                                   benchmark_comparison = benchmark_comparison,
+                                   risk_breakdown       = risk_breakdown,
+                                  )
         
-        log_info("Risk analysis complete",
-                overall_score=overall_score,
-                risk_level=risk_level,
-                high_risk_categories=len(risk_factors))
+        log_info("Risk analysis complete", overall_score = overall_score, risk_level = risk_level, high_risk_categories = len(risk_factors))
         
         return result
     
-    # =========================================================================
-    # FACTOR 1: KEYWORD SEVERITY SCORING
-    # =========================================================================
     
     def _score_keywords(self, text: str) -> Dict[str, int]:
         """
         Score text based on keyword severity tiers
         
         Returns:
-            Dictionary with 'critical', 'high', 'medium' scores
+        --------
+            { dict } : Dictionary with 'critical', 'high', 'medium' scores
         """
         text_lower = text.lower()
-        scores = defaultdict(int)
+        scores     = defaultdict(int)
         
         # Critical keywords (Tier 1)
         for keyword, weight in self.rules.CRITICAL_KEYWORDS.items():
             if keyword in text_lower:
-                count = text_lower.count(keyword)
-                scores["critical"] += weight * min(count, 3)  # Cap at 3 occurrences
+                count               = text_lower.count(keyword)
+
+                # Cap at 3 occurrences
+                scores["critical"] += weight * min(count, 3)  
         
         # High-risk keywords (Tier 2)
         for keyword, weight in self.rules.HIGH_RISK_KEYWORDS.items():
             if keyword in text_lower:
-                count = text_lower.count(keyword)
+                count           = text_lower.count(keyword)
                 scores["high"] += weight * min(count, 2)
         
         # Medium-risk keywords (Tier 3)
         for keyword, weight in self.rules.MEDIUM_RISK_KEYWORDS.items():
             if keyword in text_lower:
-                count = text_lower.count(keyword)
+                count             = text_lower.count(keyword)
                 scores["medium"] += weight * min(count, 2)
         
         return dict(scores)
     
-    # =========================================================================
-    # FACTOR 2: STRUCTURAL PATTERN ANALYSIS
-    # =========================================================================
     
     def _analyze_patterns(self, text: str) -> List[Dict]:
         """
         Detect risky structural patterns in contract
         
         Returns:
-            List of detected pattern dictionaries
+        --------
+            { list }    : List of detected pattern dictionaries
         """
-        findings = []
+        findings = list()
         
         for pattern, risk_points, description in self.rules.RISKY_PATTERNS:
             matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
-                findings.append({
-                    "pattern": description,
-                    "risk_points": risk_points,
-                    "match": match.group(0)[:100],  # First 100 chars
-                    "position": match.start()
-                })
+                findings.append({"pattern"     : description,
+                                 "risk_points" : risk_points,
+                                 "match"       : match.group(0)[:100],  # First 100 chars
+                                 "position"    : match.start(),
+                               })
         
         return findings
     
-    # =========================================================================
-    # FACTOR 3: CLAUSE-LEVEL DETAILED ANALYSIS
-    # =========================================================================
     
     def _analyze_clauses(self, clauses: List[ExtractedClause]) -> Dict[str, List[Dict]]:
         """
         Deep dive into each clause with specific risk factors
         
         Returns:
-            Dictionary mapping categories to clause analysis results
+        --------
+            { dict }    : Dictionary mapping categories to clause analysis results
         """
         clause_analysis = defaultdict(list)
         
         for clause in clauses:
             # Get risk factors for this clause category
-            if clause.category in self.rules.CLAUSE_RISK_FACTORS:
+            if (clause.category in self.rules.CLAUSE_RISK_FACTORS):
                 analysis = self._analyze_single_clause(clause)
                 clause_analysis[clause.category].append(analysis)
         
         return dict(clause_analysis)
     
+
     def _analyze_single_clause(self, clause: ExtractedClause) -> Dict:
         """
         Analyze a single clause with detailed risk factors
         
         Returns:
-            Dictionary with risk_score and findings
+        --------
+            { dict }    : Dictionary with risk_score and findings
         """
         risk_config = self.rules.CLAUSE_RISK_FACTORS.get(clause.category, {})
-        base_risk = risk_config.get("base_risk", 50)
+        base_risk   = risk_config.get("base_risk", 50)
         
-        risk_score = base_risk
-        findings = []
+        risk_score  = base_risk
+        findings    = list()
         
-        text_lower = clause.text.lower()
+        text_lower  = clause.text.lower()
         
         # Check red flags
-        if "red_flags" in risk_config:
+        if ("red_flags" in risk_config):
             for flag, adjustment in risk_config["red_flags"].items():
                 if flag in text_lower:
                     risk_score += adjustment
-                    severity = "increases" if adjustment > 0 else "decreases"
+                    severity    = "increases" if (adjustment > 0) else "decreases"
+
                     findings.append(f"Found '{flag}' ({severity} risk by {abs(adjustment)} points)")
         
         # Special handling for specific clause types
-        if clause.category == "non_compete":
+        if (clause.category == "non_compete"):
             duration_risk = self._analyze_noncompete_duration(clause.text)
-            risk_score += duration_risk["adjustment"]
+            risk_score   += duration_risk["adjustment"]
+
             findings.extend(duration_risk["findings"])
             
-            scope_risk = self._analyze_noncompete_scope(clause.text)
-            risk_score += scope_risk["adjustment"]
+            scope_risk    = self._analyze_noncompete_scope(clause.text)
+            risk_score   += scope_risk["adjustment"]
+
             findings.extend(scope_risk["findings"])
         
-        elif clause.category == "termination":
+        elif (clause.category == "termination"):
             notice_risk = self._analyze_notice_period(clause.text)
             risk_score += notice_risk["adjustment"]
+
             findings.extend(notice_risk["findings"])
         
-        elif clause.category == "indemnification":
+        elif (clause.category == "indemnification"):
             mutual_risk = self._analyze_indemnification_mutuality(clause.text)
             risk_score += mutual_risk["adjustment"]
+
             findings.extend(mutual_risk["findings"])
         
-        elif clause.category == "compensation":
+        elif (clause.category == "compensation"):
             clarity_risk = self._analyze_compensation_clarity(clause.text)
-            risk_score += clarity_risk["adjustment"]
+            risk_score  += clarity_risk["adjustment"]
+
             findings.extend(clarity_risk["findings"])
         
-        elif clause.category == "intellectual_property":
-            scope_risk = self._analyze_ip_scope(clause.text)
+        elif (clause.category == "intellectual_property"):
+            scope_risk  = self._analyze_ip_scope(clause.text)
             risk_score += scope_risk["adjustment"]
+
             findings.extend(scope_risk["findings"])
         
         # Cap score between 0 and 100
         risk_score = max(0, min(100, risk_score))
         
-        return {
-            "clause_reference": clause.reference,
-            "risk_score": risk_score,
-            "findings": findings,
-            "confidence": clause.confidence
-        }
+        return {"clause_reference" : clause.reference,
+                "risk_score"       : risk_score,
+                "findings"         : findings,
+                "confidence"       : clause.confidence,
+               }
     
+
     def _analyze_noncompete_duration(self, text: str) -> Dict:
-        """Analyze non-compete duration reasonableness"""
+        """
+        Analyze non-compete duration reasonableness
+        """
         duration_pattern = r'(\d+)\s*(year|yr|month|mo)s?'
-        matches = re.findall(duration_pattern, text, re.IGNORECASE)
+        matches          = re.findall(duration_pattern, text, re.IGNORECASE)
         
         if not matches:
-            return {"adjustment": 0, "findings": ["No specific duration found"]}
+            return {"adjustment" : 0, 
+                    "findings"   : ["No specific duration found"],
+                   }
         
         # Convert to months
         duration_months = 0
+
         for num, unit in matches:
-            months = int(num) * (12 if 'year' in unit.lower() or 'yr' in unit.lower() else 1)
+            months          = int(num) * (12 if 'year' in unit.lower() or 'yr' in unit.lower() else 1)
             duration_months = max(duration_months, months)
         
         # Get benchmark
-        industry = self._detect_industry()
+        industry  = self._detect_industry()
         benchmark = self.rules.INDUSTRY_BENCHMARKS["non_compete_duration"][industry]
         
-        if duration_months <= benchmark["reasonable"]:
+        if (duration_months <= benchmark["reasonable"]):
             return {"adjustment": -10, "findings": [f"Duration of {duration_months} months is reasonable"]}
-        elif duration_months <= benchmark["standard"]:
+        
+        elif (duration_months <= benchmark["standard"]):
             return {"adjustment": 0, "findings": [f"Duration of {duration_months} months is standard"]}
-        elif duration_months <= benchmark["excessive"]:
+
+        elif (duration_months <= benchmark["excessive"]):
             return {"adjustment": +15, "findings": [f"Duration of {duration_months} months is lengthy"]}
+
         else:
             return {"adjustment": +30, "findings": [f"Duration of {duration_months} months is excessive"]}
     
+    
     def _analyze_noncompete_scope(self, text: str) -> Dict:
-        """Analyze non-compete scope reasonableness"""
-        text_lower = text.lower()
-        adjustment = 0
-        findings = []
+        """
+        Analyze non-compete scope reasonableness
+        """
+        text_lower   = text.lower()
+        adjustment   = 0
+        findings     = list()
         
         scope_config = self.rules.CLAUSE_RISK_FACTORS["non-compete"]["scope_keywords"]
         
         for keyword, adj in scope_config.items():
             if keyword in text_lower:
                 adjustment += adj
-                severity = "reasonable" if adj < 0 else "concerning"
+                severity    = "reasonable" if adj < 0 else "concerning"
+
                 findings.append(f"Scope includes '{keyword}' ({severity})")
         
         return {"adjustment": adjustment, "findings": findings}
     
+
     def _analyze_notice_period(self, text: str) -> Dict:
-        """Analyze termination notice period balance"""
+        """
+        Analyze termination notice period balance
+        """
         notice_pattern = r'(\d+)\s*days?\s*(?:notice|prior\s+notice)'
-        matches = re.findall(notice_pattern, text, re.IGNORECASE)
+        matches        = re.findall(notice_pattern, text, re.IGNORECASE)
         
-        if len(matches) < 2:
-            return {"adjustment": 0, "findings": ["Notice period analysis inconclusive"]}
+        if (len(matches) < 2):
+            return {"adjustment" : 0, 
+                    "findings"   : ["Notice period analysis inconclusive"],
+                   }
         
         periods = [int(m) for m in matches]
         
-        if len(periods) >= 2:
+        if (len(periods) >= 2):
             ratio = max(periods) / min(periods)
             
-            if ratio >= 4:
-                return {"adjustment": +25, "findings": [f"Notice periods highly imbalanced ({max(periods)} vs {min(periods)} days)"]}
-            elif ratio >= 3:
-                return {"adjustment": +18, "findings": [f"Notice periods significantly imbalanced ({max(periods)} vs {min(periods)} days)"]}
-            elif ratio >= 2:
-                return {"adjustment": +10, "findings": [f"Notice periods moderately imbalanced ({max(periods)} vs {min(periods)} days)"]}
+            if (ratio >= 4):
+                return {"adjustment" : +25, "findings": [f"Notice periods highly imbalanced ({max(periods)} vs {min(periods)} days)"]}
+            
+            elif (ratio >= 3):
+                return {"adjustment" : +18, 
+                        "findings"   : [f"Notice periods significantly imbalanced ({max(periods)} vs {min(periods)} days)"],
+                       }
+            
+            elif (ratio >= 2):
+                return {"adjustment" : +10, 
+                        "findings"   : [f"Notice periods moderately imbalanced ({max(periods)} vs {min(periods)} days)"],
+                       }
+            
             else:
-                return {"adjustment": -5, "findings": [f"Notice periods balanced ({max(periods)} vs {min(periods)} days)"]}
+                return {"adjustment" : -5,
+                        "findings"   : [f"Notice periods balanced ({max(periods)} vs {min(periods)} days)"],
+                       }
         
-        return {"adjustment": 0, "findings": ["Could not determine notice period balance"]}
+        return {"adjustment" : 0, 
+                "findings"   : ["Could not determine notice period balance"],
+               }
     
+
     def _analyze_indemnification_mutuality(self, text: str) -> Dict:
-        """Check if indemnification is mutual or one-sided"""
-        text_lower = text.lower()
+        """
+        Check if indemnification is mutual or one-sided
+        """
+        text_lower           = text.lower()
         
-        mutual_indicators = ["mutual", "both parties", "each party", "reciprocal"]
-        one_sided_indicators = ["employee shall indemnify", "consultant shall indemnify", 
-                               "contractor shall indemnify", "you shall indemnify"]
+        mutual_indicators    = ["mutual", "both parties", "each party", "reciprocal"]
+        one_sided_indicators = ["employee shall indemnify", "consultant shall indemnify", "contractor shall indemnify", "you shall indemnify"]
         
-        has_mutual = any(ind in text_lower for ind in mutual_indicators)
-        has_one_sided = any(ind in text_lower for ind in one_sided_indicators)
+        has_mutual           = any(ind in text_lower for ind in mutual_indicators)
+        has_one_sided        = any(ind in text_lower for ind in one_sided_indicators)
         
-        if has_mutual and not has_one_sided:
-            return {"adjustment": -15, "findings": ["Mutual indemnification (balanced)"]}
+        if (has_mutual and not has_one_sided):
+            return {"adjustment" : -15, 
+                    "findings"   : ["Mutual indemnification (balanced)"],
+                   }
+
         elif has_one_sided:
-            return {"adjustment": +20, "findings": ["One-sided indemnification (unfavorable)"]}
+            return {"adjustment" : +20, 
+                    "findings"   : ["One-sided indemnification (unfavorable)"],
+                   }
+
         else:
-            return {"adjustment": 0, "findings": ["Indemnification mutuality unclear"]}
+            return {"adjustment" : 0, 
+                    "findings"   : ["Indemnification mutuality unclear"],
+                   }
+
     
     def _analyze_compensation_clarity(self, text: str) -> Dict:
-        """Analyze clarity of compensation terms"""
-        text_lower = text.lower()
-        adjustment = 0
-        findings = []
+        """
+        Analyze clarity of compensation terms
+        """
+        text_lower  = text.lower()
+        adjustment  = 0
+        findings    = list()
         
         # Check for vague terms
         vague_terms = ["to be determined", "tbd", "subject to review", "discretionary"]
+        
         for term in vague_terms:
             if term in text_lower:
                 adjustment += 10
@@ -431,16 +476,22 @@ class MultiFactorRiskAnalyzer:
             adjustment -= 10
             findings.append("Specific monetary amount provided (good)")
         
-        return {"adjustment": adjustment, "findings": findings}
+        return {"adjustment" : adjustment, 
+                "findings"   : findings,
+               }
+
     
     def _analyze_ip_scope(self, text: str) -> Dict:
-        """Analyze IP assignment scope"""
-        text_lower = text.lower()
-        adjustment = 0
-        findings = []
+        """
+        Analyze IP assignment scope
+        """
+        text_lower  = text.lower()
+        adjustment  = 0
+        findings    = list()
         
         # Overly broad indicators
         broad_terms = ["all work product", "anything created", "whether or not related"]
+        
         for term in broad_terms:
             if term in text_lower:
                 adjustment += 15
@@ -449,25 +500,31 @@ class MultiFactorRiskAnalyzer:
         # Protective terms
         protective_terms = ["prior ip excluded", "personal projects excluded"]
         for term in protective_terms:
-            if term in text_lower:
+            
+            if (term in text_lower):
                 adjustment -= 15
                 findings.append(f"Protective IP term present: '{term}'")
         
-        return {"adjustment": adjustment, "findings": findings}
+        return {"adjustment" : adjustment, 
+                "findings"   : findings,
+               }
     
-    # =========================================================================
-    # FACTOR 4: MISSING PROTECTIONS CHECK
-    # =========================================================================
     
-    def _check_missing_protections(self, text: str, 
-                                   clauses: List[ExtractedClause]) -> Dict[str, int]:
+    def _check_missing_protections(self, text: str, clauses: List[ExtractedClause]) -> Dict[str, int]:
         """
         Check for missing critical protections
         
+        Arguments:
+        ----------
+            text     { str } :
+
+            clauses { list } : 
+
         Returns:
-            Dictionary mapping categories to risk scores for missing items
+        --------
+            { dict }    : Dictionary mapping categories to risk scores for missing items
         """
-        text_lower = text.lower()
+        text_lower    = text.lower()
         missing_risks = defaultdict(int)
         
         for protection_id, config in self.rules.PROTECTION_CHECKLIST.items():
@@ -480,11 +537,11 @@ class MultiFactorRiskAnalyzer:
         
         return dict(missing_risks)
     
-    def _check_protection_present(self, protection_id: str, 
-                                 text_lower: str, 
-                                 clauses: List[ExtractedClause]) -> bool:
-        """Check if a specific protection is present"""
-        
+
+    def _check_protection_present(self, protection_id: str, text_lower: str, clauses: List[ExtractedClause]) -> bool:
+        """
+        Check if a specific protection is present
+        """
         protection_indicators = {
             "for_cause_definition": ["for cause", "cause defined", "grounds for termination"],
             "severance_provision": ["severance", "severance pay", "separation pay"],

@@ -67,7 +67,7 @@ class PDFReportGenerator:
         
         # Body text
         self.styles.add(ParagraphStyle(
-            name='BodyText',
+            name='CustomBodyText',
             parent=self.styles['Normal'],
             fontSize=10,
             leading=14,
@@ -445,52 +445,3 @@ def generate_pdf_report(analysis_result: Dict[str, Any],
     generator = PDFReportGenerator()
     return generator.generate_report(analysis_result, output_path)
 
-
-if __name__ == "__main__":
-    # Test with sample data
-    sample_result = {
-        "analysis_id": "test-123",
-        "timestamp": datetime.now().isoformat(),
-        "risk_analysis": {
-            "overall_score": 85,
-            "risk_level": "CRITICAL",
-            "risk_breakdown": [
-                {
-                    "category": "Restrictive Covenants",
-                    "score": 95,
-                    "summary": "The agreement contains exceptionally broad and long-lasting non-compete (24 months) and non-solicitation (5 years) clauses."
-                },
-                {
-                    "category": "Penalties & Termination",
-                    "score": 90,
-                    "summary": "The contract includes severe penalties for breach, including forfeiture of earned salary."
-                }
-            ]
-        },
-        "executive_summary": "This employment agreement is heavily skewed in favor of the Employer, presenting a very high risk.",
-        "unfavorable_terms": [
-            {
-                "term": "Undefined Post-Probation Salary",
-                "clause_reference": "Clause 8.2",
-                "severity": "critical",
-                "explanation": "Post-probation salary is undefined ('as discussed').",
-                "suggested_fix": "Insist that the exact salary be explicitly stated."
-            }
-        ],
-        "missing_protections": [
-            {
-                "protection": "Defined Post-Probation Salary",
-                "importance": "critical",
-                "explanation": "The contract lacks a specific, written salary commitment."
-            }
-        ],
-        "negotiation_points": [
-            {
-                "issue": "Post-probation salary",
-                "rationale": "Must be explicitly defined in writing before signing."
-            }
-        ]
-    }
-    
-    buffer = generate_pdf_report(sample_result, "test_report.pdf")
-    print("Test PDF generated successfully!")

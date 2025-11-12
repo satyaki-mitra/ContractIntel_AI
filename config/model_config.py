@@ -6,8 +6,13 @@ class ModelConfig:
     """
     Model-specific configurations - FOR AI MODEL SETTINGS ONLY
     """
+    # Directory Settings
+    MODEL_DIR = Path("models")
+    CACHE_DIR = Path("cache/models")
+    
     # Model Architecture Settings
     LEGAL_BERT        = {"model_name"      : "nlpaueb/legal-bert-base-uncased",
+                         "local_path"      : MODEL_DIR / "legal-bert",
                          "task"            : "clause-extraction",
                          "max_length"      : 512,
                          "batch_size"      : 16,
@@ -18,6 +23,7 @@ class ModelConfig:
     
     # Embedding Model Settings
     EMBEDDING_MODEL   = {"model_name"           : "sentence-transformers/all-MiniLM-L6-v2",
+                         "local_path"           : MODEL_DIR / "embeddings",
                          "dimension"            : 384,
                          "pooling"              : "mean",
                          "normalize"            : True,
@@ -74,6 +80,20 @@ class ModelConfig:
                          "max_sentence_length" : 200,
                          "entity_confidence"   : 0.8,
                         }
+
+    @classmethod
+    def ensure_directories(cls):
+        """
+        Ensure all required directories exist
+        """
+        directories = [cls.MODEL_DIR,
+                       cls.CACHE_DIR,
+                       cls.MODEL_DIR / "legal-bert",
+                       cls.MODEL_DIR / "embeddings",
+                      ]
+                    
+        for directory in directories:
+            directory.mkdir(parents = True, exist_ok = True)
 
 
     @classmethod

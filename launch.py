@@ -57,10 +57,10 @@ def start_api():
     time.sleep(3)
     
     try:
-        response = requests.get("http://localhost:8000/api/v1/health", timeout=5)
+        response = requests.get("http://localhost:8005/api/v1/health", timeout=5)
         if response.status_code == 200:
-            print("✓ API Server running at: http://localhost:8000")
-            print("✓ Documentation at: http://localhost:8000/api/docs")
+            print("✓ API Server running at: http://localhost:8005")
+            print("✓ Documentation at: http://localhost:8005/api/docs")
             return True
     except:
         pass

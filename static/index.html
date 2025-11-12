@@ -15,14 +15,14 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: #ffffff;
             color: #333;
-            line-height: 1.6;
+            line-height: 1.5;
         }
 
         /* Header */
         .header {
             background: white;
-            border-bottom: 1px solid #e5e5e5;
-            padding: 1rem 2rem;
+            border-bottom: 0.2px solid #e5e5e5;
+            padding: 0.3rem 2.0rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -49,32 +49,32 @@
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 18px;
+            font-size: 20px;
         }
 
         .subtitle {
             color: #666;
-            font-size: 0.9rem;
-            font-weight: 400;
+            font-size: 1.0rem;
+            font-weight: 500;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0 0.2rem;
         }
 
-        /* Landing Page Styles - Updated to match screenshot */
+        /* Landing Page Styles */
         .landing-screen {
-            padding-top: 80px;
+            padding-top: 50px;
         }
 
         .hero-section {
             text-align: center;
-            padding: 6rem 0 4rem;
+            padding: 1rem 0 1rem;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            margin-bottom: 4rem;
+            margin-bottom: 2rem;
         }
 
         .hero-title {
@@ -88,7 +88,7 @@
             font-size: 1.3rem;
             margin-bottom: 2.5rem;
             opacity: 0.95;
-            max-width: 600px;
+            max-width: 1000px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -112,42 +112,42 @@
         }
 
         .section {
-            padding: 4rem 0;
+            padding: 0.5rem 0;
             text-align: center;
         }
 
         .section-title {
             font-size: 2.2rem;
             font-weight: 600;
-            margin-bottom: 3rem;
+            margin-bottom: 1rem;
             color: #333;
         }
 
         .section-subtitle {
             font-size: 1.2rem;
             color: #666;
-            margin-bottom: 3rem;
-            max-width: 800px;
+            margin-bottom: 1rem;
+            max-width: 1000px;
             margin-left: auto;
             margin-right: auto;
-            line-height: 1.8;
+            line-height: 0.5;
         }
 
         .features-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 3rem;
-            margin-bottom: 4rem;
+            margin-bottom: 0.1rem;
         }
 
         .feature-card {
             text-align: center;
-            padding: 2rem;
+            padding: 1rem;
         }
 
         .feature-icon {
             font-size: 3rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.0rem;
         }
 
         .feature-title {
@@ -159,25 +159,26 @@
 
         .feature-description {
             color: #666;
-            line-height: 1.7;
+            line-height: 1.5;
             font-size: 1rem;
         }
 
         .steps-section {
-            background: #f8f9fa;
-            padding: 5rem 0;
+            background: white;
+            padding: 1rem 0;
+            text-align: center;
         }
 
         .steps-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 3rem;
-            margin-top: 3rem;
+            margin-top: 0.5rem;
         }
 
         .step-card {
             text-align: center;
-            padding: 2rem;
+            padding: 0.5rem;
         }
 
         .step-number {
@@ -191,7 +192,7 @@
             justify-content: center;
             font-size: 1.5rem;
             font-weight: 700;
-            margin: 0 auto 1.5rem;
+            margin: 0 auto 1.2rem;
         }
 
         .step-title {
@@ -203,16 +204,16 @@
 
         .step-description {
             color: #666;
-            line-height: 1.7;
+            line-height: 1.5;
         }
 
         .footer {
             text-align: center;
-            padding: 3rem 2rem;
+            padding: 1rem 0.5rem;
             color: #999;
             font-size: 0.9rem;
-            border-top: 1px solid #e5e5e5;
-            background: #f8f9fa;
+            border-top: 0.5px solid #e5e5e5;
+            background: white;
         }
 
         /* Analyzer Styles */
@@ -238,6 +239,14 @@
             font-size: 1.1rem;
             color: #666;
             margin-bottom: 2rem;
+        }
+
+        .upload-section {
+            transition: all 0.3s ease;
+        }
+
+        .upload-section.hidden {
+            display: none !important;
         }
 
         .upload-card {
@@ -446,11 +455,11 @@
             font-size: 1rem;
         }
 
-        .results-screen {
+        .results-content {
             display: none;
         }
 
-        .results-screen.active {
+        .results-content.active {
             display: block;
         }
 
@@ -493,22 +502,26 @@
             border: 1px solid #fecaca;
         }
 
-        /* Results screen styles */
+        /* Results screen styles - UPDATED BUTTON POSITIONING */
         .results-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 2rem;
+            gap: 2rem;
         }
 
         .results-title {
             font-size: 2rem;
             font-weight: 700;
+            flex: 1;
         }
 
         .results-actions {
             display: flex;
             gap: 1rem;
+            align-items: center;
+            justify-content: flex-end;
         }
 
         .btn {
@@ -519,6 +532,10 @@
             cursor: pointer;
             border: none;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
         }
 
         .btn-primary {
@@ -582,7 +599,6 @@
             transform: translate(-50%, -50%);
             font-size: 3rem;
             font-weight: 700;
-            color: #dc2626;
         }
 
         .risk-level {
@@ -864,9 +880,10 @@
         <!-- Hero Section -->
         <section class="hero-section">
             <div class="container">
-                <h1 class="hero-title">Unlock Legal Intelligence<br>Analyze Contracts with AI</h1>
+                <h1 class="hero-title">Unlock Legal Intelligence : Analyze Contracts with AI</h1>
                 <p class="hero-subtitle">
                     Instantly identify risks, uncover unfavorable terms, and gain actionable negotiation points. 
+                    <br>
                     Our AI-powered platform gives you the clarity and confidence to sign better contracts.
                 </p>
                 <button class="cta-button" id="getStartedBtn">Try Now for Free</button>
@@ -954,48 +971,46 @@
                 ← Back to Overview
             </button>
 
-            <div class="hero-section-analyzer">
-                <h1 class="hero-title-analyzer">Analyze Your Contract in Seconds</h1>
-                <p class="hero-description">Paste your contract or upload a file to get an instant, AI-powered risk assessment.</p>
-            </div>
-
-            <!-- API Status Indicator -->
-            <div id="apiStatus" class="api-status" style="display: none;">
-                Checking backend connection...
-            </div>
-
-            <div class="upload-card">
-                <div class="tabs">
-                    <button class="tab active" data-tab="paste">Paste Text</button>
-                    <button class="tab" data-tab="upload">Upload File</button>
+            <!-- Upload Section - Shown by default -->
+            <div id="uploadSection" class="upload-section">
+                <div class="hero-section-analyzer">
+                    <h1 class="hero-title-analyzer">Analyze Your Contract in Seconds</h1>
+                    <p class="hero-description">Paste your contract or upload a file to get an instant, AI-powered risk assessment.</p>
                 </div>
 
-                <div id="pasteTab" class="tab-content active">
-                    <textarea class="textarea" id="contractText" placeholder="Paste your full contract text here..."></textarea>
-                </div>
-
-                <div id="uploadTab" class="tab-content">
-                    <div class="file-upload-area" id="fileUploadArea">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.docx,.txt">
-                        <div class="upload-icon">📄</div>
-                        <div class="upload-text">Click to upload or drag and drop</div>
-                        <div class="upload-hint">PDF, DOCX, or TXT files (Max 10MB)</div>
+                <div class="upload-card">
+                    <div class="tabs">
+                        <button class="tab active" data-tab="paste">Paste Text</button>
+                        <button class="tab" data-tab="upload">Upload File</button>
                     </div>
-                    <div id="selectedFile" class="selected-file" style="display: none;">
-                        <div class="file-icon">📄</div>
-                        <div class="file-info">
-                            <div class="file-name" id="fileName"></div>
-                            <div class="file-size" id="fileSize"></div>
+
+                    <div id="pasteTab" class="tab-content active">
+                        <textarea class="textarea" id="contractText" placeholder="Paste your full contract text here..."></textarea>
+                    </div>
+
+                    <div id="uploadTab" class="tab-content">
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <input type="file" id="fileInput" class="file-input" accept=".pdf,.docx,.txt">
+                            <div class="upload-icon">📄</div>
+                            <div class="upload-text">Click to upload or drag and drop</div>
+                            <div class="upload-hint">PDF, DOCX, or TXT files (Max 10MB)</div>
                         </div>
-                        <button class="remove-file" id="removeFile">×</button>
+                        <div id="selectedFile" class="selected-file" style="display: none;">
+                            <div class="file-icon">📄</div>
+                            <div class="file-info">
+                                <div class="file-name" id="fileName"></div>
+                                <div class="file-size" id="fileSize"></div>
+                            </div>
+                            <button class="remove-file" id="removeFile">×</button>
+                        </div>
                     </div>
-                </div>
 
-                <div class="analyze-btn-container">
-                    <button class="analyze-btn" id="analyzeBtn">
-                        <span>🔍</span>
-                        <span>Analyze Contract</span>
-                    </button>
+                    <div class="analyze-btn-container">
+                        <button class="analyze-btn" id="analyzeBtn">
+                            <span>🔍</span>
+                            <span>Analyze Contract</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1006,8 +1021,8 @@
                 <p class="loading-text">This may take a moment for large documents.</p>
             </div>
 
-            <!-- Results Screen -->
-            <div id="resultsScreen" class="results-screen">
+            <!-- Results Content - Hidden by default -->
+            <div id="resultsContent" class="results-content">
                 <div class="results-header">
                     <h1 class="results-title">Analysis Report</h1>
                     <div class="results-actions">
@@ -1098,20 +1113,19 @@
     </div>
 
     <script>
-        const API_BASE_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8000/api/v1' 
-            : '/api/v1';
+        // DYNAMIC API BASE URL - Automatically detects current port
+        const API_BASE_URL = `${window.location.protocol}//${window.location.host}/api/v1`;
         
         let selectedFile = null;
-        let currentJobId = null;
-        let pollInterval = null;
+        let currentAnalysisResult = null;
 
         // Screen management
         function showScreen(screenName) {
             document.getElementById('landingScreen').style.display = 'none';
             document.getElementById('analyzerScreen').style.display = 'none';
             document.getElementById('loadingScreen').classList.remove('active');
-            document.getElementById('resultsScreen').classList.remove('active');
+            document.getElementById('resultsContent').classList.remove('active');
+            document.getElementById('uploadSection').classList.remove('hidden');
 
             if (screenName === 'landing') {
                 document.getElementById('landingScreen').style.display = 'block';
@@ -1121,9 +1135,11 @@
             } else if (screenName === 'loading') {
                 document.getElementById('analyzerScreen').style.display = 'block';
                 document.getElementById('loadingScreen').classList.add('active');
+                document.getElementById('uploadSection').classList.add('hidden');
             } else if (screenName === 'results') {
                 document.getElementById('analyzerScreen').style.display = 'block';
-                document.getElementById('resultsScreen').classList.add('active');
+                document.getElementById('resultsContent').classList.add('active');
+                document.getElementById('uploadSection').classList.add('hidden');
             }
         }
 
@@ -1143,14 +1159,15 @@
                 });
 
                 if (response.ok) {
-                    statusElement.textContent = '✓ Backend connected successfully';
+                    const data = await response.json();
+                    statusElement.textContent = `✓ Backend connected (${data.models_loaded} models, ${data.services_loaded} services)`;
                     statusElement.className = 'api-status connected';
                 } else {
                     throw new Error('Backend not responding properly');
                 }
             } catch (error) {
                 console.error('Backend connection failed:', error);
-                statusElement.textContent = '✗ Cannot connect to backend. Make sure the server is running on port 8000.';
+                statusElement.textContent = '✗ Cannot connect to backend. Make sure the server is running.';
                 statusElement.className = 'api-status disconnected';
                 
                 setTimeout(() => {
@@ -1166,6 +1183,18 @@
 
         document.getElementById('backToLandingBtn').addEventListener('click', () => {
             showScreen('landing');
+        });
+
+        document.getElementById('analyzeAnotherBtn').addEventListener('click', () => {
+            // Reset form
+            document.getElementById('contractText').value = '';
+            selectedFile = null;
+            fileInput.value = '';
+            selectedFileDiv.style.display = 'none';
+            fileUploadArea.style.display = 'block';
+            
+            // Show upload section again
+            showScreen('analyzer');
         });
 
         // Tab switching
@@ -1271,15 +1300,13 @@
                         alert('Please paste contract text');
                         return;
                     }
-                    const blob = new Blob([text], { type: 'text/plain' });
-                    const file = new File([blob], 'contract.txt', { type: 'text/plain' });
-                    await analyzeContract(file);
+                    await analyzeContractText(text);
                 } else {
                     if (!selectedFile) {
                         alert('Please select a file');
                         return;
                     }
-                    await analyzeContract(selectedFile);
+                    await analyzeContractFile(selectedFile);
                 }
             } catch (error) {
                 console.error('Analysis error:', error);
@@ -1290,7 +1317,8 @@
             }
         });
 
-        async function analyzeContract(file) {
+        // Direct file analysis (synchronous)
+        async function analyzeContractFile(file) {
             try {
                 showScreen('loading');
 
@@ -1300,9 +1328,8 @@
                 formData.append('interpret_clauses', 'true');
                 formData.append('generate_negotiation_points', 'true');
                 formData.append('compare_to_market', 'true');
-                formData.append('llm_provider', 'ollama');
 
-                const response = await fetch(`${API_BASE_URL}/analyze`, {
+                const response = await fetch(`${API_BASE_URL}/analyze/file`, {
                     method: 'POST',
                     body: formData
                 });
@@ -1318,10 +1345,10 @@
                     throw new Error(errorDetail);
                 }
 
-                const job = await response.json();
-                currentJobId = job.job_id;
-
-                pollInterval = setInterval(() => pollJobStatus(currentJobId), 2000);
+                const result = await response.json();
+                currentAnalysisResult = result;
+                displayResults(result);
+                showScreen('results');
 
             } catch (error) {
                 console.error('Error:', error);
@@ -1330,44 +1357,110 @@
             }
         }
 
-        async function pollJobStatus(jobId) {
+        // Direct text analysis (synchronous)
+        async function analyzeContractText(text) {
             try {
-                const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
-                if (!response.ok) throw new Error('Failed to fetch job status');
-                
-                const job = await response.json();
+                showScreen('loading');
 
-                if (job.status === 'completed') {
-                    clearInterval(pollInterval);
-                    displayResults(job.result);
-                    showScreen('results');
-                } else if (job.status === 'failed') {
-                    clearInterval(pollInterval);
-                    alert('Analysis failed: ' + job.error);
-                    showScreen('analyzer');
+                const formData = new FormData();
+                formData.append('contract_text', text);
+                formData.append('max_clauses', '15');
+                formData.append('interpret_clauses', 'true');
+                formData.append('generate_negotiation_points', 'true');
+                formData.append('compare_to_market', 'true');
+
+                const response = await fetch(`${API_BASE_URL}/analyze/text`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    let errorDetail = 'Analysis failed';
+                    try {
+                        const errorData = await response.json();
+                        errorDetail = errorData.detail || errorData.error || errorDetail;
+                    } catch (e) {
+                        errorDetail = `Server error: ${response.status} ${response.statusText}`;
+                    }
+                    throw new Error(errorDetail);
                 }
+
+                const result = await response.json();
+                currentAnalysisResult = result;
+                displayResults(result);
+                showScreen('results');
+
             } catch (error) {
-                console.error('Polling error:', error);
+                console.error('Error:', error);
+                alert('Error analyzing contract: ' + error.message);
+                showScreen('analyzer');
             }
         }
+
+        // Download PDF
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            if (!currentAnalysisResult) {
+                alert('No analysis results available to download');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(currentAnalysisResult)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate PDF');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `contract_analysis_${currentAnalysisResult.analysis_id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('PDF download error:', error);
+                alert('Error downloading PDF: ' + error.message);
+            }
+        });
 
         function displayResults(result) {
             const score = result.risk_analysis.overall_score;
             const riskLevel = result.risk_analysis.risk_level;
             
+            // Update risk score
             document.getElementById('riskScoreValue').textContent = score;
             document.getElementById('riskLevel').textContent = riskLevel.toUpperCase();
             document.getElementById('riskLevel').className = 'risk-level risk-' + getRiskClass(score);
             
+            // Update risk circle
             const circumference = 534;
             const offset = circumference - (score / 100) * circumference;
             const circle = document.getElementById('riskCircle');
             circle.style.strokeDashoffset = offset;
-            circle.style.stroke = getRiskColor(score);
-
+            
+            // Get risk color and apply to both circle and text
+            const riskColor = getRiskColor(score);
+            circle.style.stroke = riskColor;
+            
+            // Update text color in the middle of the circle
+            const riskScoreValue = document.getElementById('riskScoreValue');
+            riskScoreValue.style.color = riskColor;
+            
+            // Update executive summary
             document.getElementById('executiveSummary').textContent = result.executive_summary;
 
-            // Update other result sections...
+            // Update unfavorable terms
             const unfavorableList = document.getElementById('unfavorableTermsList');
             unfavorableList.innerHTML = '';
             if (result.unfavorable_terms && result.unfavorable_terms.length > 0) {
@@ -1380,7 +1473,91 @@
                 unfavorableList.innerHTML = '<li>No unfavorable terms detected</li>';
             }
 
-            // Similar updates for other sections...
+            // Update missing protections
+            const missingList = document.getElementById('missingProtectionsList');
+            missingList.innerHTML = '';
+            if (result.missing_protections && result.missing_protections.length > 0) {
+                result.missing_protections.slice(0, 8).forEach(protection => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="item-icon">›</span><span class="item-text"><strong>${protection.protection}:</strong> ${protection.explanation}</span>`;
+                    missingList.appendChild(li);
+                });
+            } else {
+                missingList.innerHTML = '<li>No missing protections detected</li>';
+            }
+
+            // Update negotiation points
+            const negotiationList = document.getElementById('negotiationPointsList');
+            negotiationList.innerHTML = '';
+            if (result.negotiation_points && result.negotiation_points.length > 0) {
+                result.negotiation_points.slice(0, 8).forEach(point => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="item-icon">›</span><span class="item-text"><strong>${point.point}:</strong> ${point.explanation}</span>`;
+                    negotiationList.appendChild(li);
+                });
+            } else {
+                negotiationList.innerHTML = '<li>No negotiation points generated</li>';
+            }
+
+            // Update category breakdown
+            const categoryBreakdown = document.getElementById('categoryBreakdown');
+            categoryBreakdown.innerHTML = '';
+            
+            if (result.risk_analysis.category_scores) {
+                Object.entries(result.risk_analysis.category_scores).forEach(([category, score]) => {
+                    const categoryItem = document.createElement('div');
+                    categoryItem.className = 'category-item';
+                    
+                    const riskClass = getRiskClass(score);
+                    const riskColor = getRiskColor(score);
+                    
+                    categoryItem.innerHTML = `
+                        <div class="category-header">
+                            <span class="category-name">${formatCategoryName(category)}</span>
+                            <span class="category-score score-${riskClass}">${score}/100</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-${riskClass}" style="width: ${score}%"></div>
+                        </div>
+                        <div class="category-description">
+                            ${getCategoryDescription(category, score)}
+                        </div>
+                    `;
+                    
+                    categoryBreakdown.appendChild(categoryItem);
+                });
+            }
+
+            // Update clause analysis
+            const clauseAnalysis = document.getElementById('clauseAnalysis');
+            clauseAnalysis.innerHTML = '';
+            
+            if (result.clauses && result.clauses.length > 0) {
+                result.clauses.slice(0, 10).forEach(clause => {
+                    const clauseItem = document.createElement('div');
+                    clauseItem.className = `clause-item ${getRiskClass(clause.confidence * 100)}`;
+                    
+                    clauseItem.innerHTML = `
+                        <div class="clause-header">
+                            <div>
+                                <div class="clause-label">${clause.reference} • ${clause.category}</div>
+                                <div class="clause-text">${clause.text.substring(0, 200)}${clause.text.length > 200 ? '...' : ''}</div>
+                            </div>
+                            <div class="severity-badge badge-${getRiskClass(clause.confidence * 100)}">
+                                ${Math.round(clause.confidence * 100)}% confidence
+                            </div>
+                        </div>
+                        ${clause.risk_indicators && clause.risk_indicators.length > 0 ? `
+                            <div class="clause-section">
+                                <div class="clause-section-title">Risk Indicators</div>
+                                <div class="clause-section-text">${clause.risk_indicators.join(', ')}</div>
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    clauseAnalysis.appendChild(clauseItem);
+                });
+            }
         }
 
         function getRiskClass(score) {
@@ -1395,6 +1572,24 @@
             if (score >= 60) return '#f97316';
             if (score >= 40) return '#ca8a04';
             return '#16a34a';
+        }
+
+        function formatCategoryName(category) {
+            return category.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        function getCategoryDescription(category, score) {
+            const descriptions = {
+                'termination': score > 60 ? 'High termination risk detected' : 'Termination terms appear reasonable',
+                'compensation': score > 60 ? 'Compensation structure needs review' : 'Compensation terms are clear',
+                'confidentiality': score > 60 ? 'Confidentiality terms may be overly broad' : 'Confidentiality terms are balanced',
+                'liability': score > 60 ? 'Liability allocation needs attention' : 'Liability terms are reasonable',
+                'intellectual_property': score > 60 ? 'IP rights allocation requires review' : 'IP terms are well-defined'
+            };
+            
+            return descriptions[category] || 'Review recommended based on risk score';
         }
 
         // Initialize

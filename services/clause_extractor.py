@@ -21,6 +21,7 @@ from utils.logger import log_info
 from utils.logger import log_error
 from utils.text_processor import TextProcessor
 from utils.logger import ContractAnalyzerLogger
+from model_manager.model_loader import ModelLoader
 
 
 @dataclass
@@ -604,7 +605,7 @@ class ClauseExtractor:
         Extract risk indicator keywords from clause text
         """
         text_lower       = text.lower()
-        found_indicators = dict()
+        found_indicators = list()
         
         for severity, indicators in self.RISK_INDICATORS.items():
             for indicator in indicators:

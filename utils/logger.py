@@ -114,7 +114,7 @@ class ContractAnalyzerLogger:
     
 
     @classmethod
-    def log_structured(cls, level: int, message: str, request_id: Optional[str] = None, **kwargs):
+    def log_structured(cls, level: int, message: str, **kwargs):
         """
         Log structured data as JSON
         
@@ -124,15 +124,12 @@ class ContractAnalyzerLogger:
 
             message    { str } : Log message
             
-            request_id { str } : Optional request ID for tracking
-            
             **kwargs           : Additional structured data
         """
         logger   = cls.get_logger()
         
         log_data = {"timestamp"  : datetime.now().isoformat(),
                     "message"    : message,
-                    "request_id" : request_id,
                     **kwargs
                    }
         
@@ -140,7 +137,7 @@ class ContractAnalyzerLogger:
     
 
     @classmethod
-    def log_error(cls, error: Exception, context: Dict[str, Any] = None, request_id: Optional[str] = None):
+    def log_error(cls, error: Exception, context: Dict[str, Any] = None):
         """
         Log error with full traceback and context
         
@@ -149,8 +146,6 @@ class ContractAnalyzerLogger:
             error      { Exception } : Exception object
 
             context      { dict }    : Additional context dictionary
-            
-            request_id    { str }    : Request ID for tracking
         """
         error_logger = cls._loggers.get("contract_analyzer.error")
         
@@ -158,7 +153,6 @@ class ContractAnalyzerLogger:
             error_logger = cls.get_logger()
         
         error_data = {"timestamp"     : datetime.now().isoformat(),
-                      "request_id"    : request_id,
                       "error_type"    : type(error).__name__,
                       "error_message" : str(error),
                       "traceback"     : traceback.format_exc(),
@@ -169,7 +163,7 @@ class ContractAnalyzerLogger:
     
 
     @classmethod
-    def log_performance(cls, operation: str, duration: float, request_id: Optional[str] = None, **metrics):
+    def log_performance(cls, operation: str, duration: float, **metrics):
         """
         Log performance metrics
         
@@ -179,8 +173,6 @@ class ContractAnalyzerLogger:
 
             duration  { float } : Duration in seconds
             
-            request_id { str }  : Request ID
-            
             **metrics           : Additional metrics
         """
         perf_logger = cls._loggers.get("contract_analyzer.performance")
@@ -188,7 +180,6 @@ class ContractAnalyzerLogger:
             perf_logger = cls.get_logger()
         
         perf_data = {"timestamp"        : datetime.now().isoformat(),
-                     "request_id"       : request_id,
                      "operation"        : operation,
                      "duration_seconds" : round(duration, 3),
                      **metrics

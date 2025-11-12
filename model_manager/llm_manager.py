@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal
 from typing import Optional
 from dataclasses import dataclass
+from config.settings import settings
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -80,14 +81,14 @@ class LLMManager:
     Unified LLM manager for multiple providers : handles Ollama (local), OpenAI API, and Anthropic API
     """
     def __init__(self, default_provider: LLMProvider = LLMProvider.OLLAMA, ollama_base_url: Optional[str] = None,
-                 openai_api_key: Optional[str] = None, anthropic_api_key: Optional[str] = None):
+             openai_api_key: Optional[str] = None, anthropic_api_key: Optional[str] = None):
         """
         Initialize LLM Manager
         
         Arguments:
         ----------
             default_provider  : Default LLM provider to use
-
+            
             ollama_base_url   : Ollama server URL (default: http://localhost:11434)
             
             openai_api_key    : OpenAI API key (or set OPENAI_API_KEY env var)
@@ -101,9 +102,20 @@ class LLMManager:
         self.config            = ModelConfig()
         
         # Ollama configuration
-        self.ollama_base_url   = ollama_base_url or self.config.LLM_CONFIG["base_url"]
-        self.ollama_model      = self.config.LLM_CONFIG["model"]
-        self.ollama_timeout    = self.config.LLM_CONFIG["timeout"]
+        self.ollama_base_url   = ollama_base_url or "http://localhost:11434"  # Default Ollama URL
+        self.ollama_model      = "mistral:7b"  # Default model
+        self.ollama_timeout    = 300           # Default timeout
+        
+        # Get settings from environment or use defaults
+        try:
+            
+            self.ollama_base_url = ollama_base_url or settings.OLLAMA_BASE_URL
+            self.ollama_model    = settings.OLLAMA_MODEL
+            self.ollama_timeout = settings.OLLAMA_TIMEOUT
+        
+        except ImportError:
+            # Fallback to defaults if settings not available
+            pass
         
         # OpenAI configuration
         self.openai_api_key    = openai_api_key
@@ -116,7 +128,7 @@ class LLMManager:
 
         if (ANTHROPIC_AVAILABLE and self.anthropic_api_key):
             self.anthropic_client = anthropic.Anthropic(api_key = self.anthropic_api_key)
-
+        
         else:
             self.anthropic_client = None
         
@@ -133,7 +145,7 @@ class LLMManager:
                  openai_available    = OPENAI_AVAILABLE and bool(self.openai_api_key),
                  anthropic_available = ANTHROPIC_AVAILABLE and bool(self.anthropic_api_key),
                 )
-    
+        
 
     # PROVIDER AVAILABILITY CHECKS
     def _check_ollama_available(self) -> bool:

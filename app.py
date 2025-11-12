@@ -3,19 +3,24 @@ FastAPI Application for AI Contract Risk Analyzer
 Complete pre-loading approach: All models loaded at startup
 Direct synchronous flow: Upload → Analyze → Return Results + PDF
 """
+import signal
+import os
+import time
+import json
+import uuid
+from typing import Any, List, Dict, Optional
+from pathlib import Path
+from datetime import datetime
+from contextlib import asynccontextmanager
+
+import uvicorn
+import numpy as np
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.responses import JSONResponse, FileResponse, Response
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-import uuid
-import os
-from datetime import datetime
-from pathlib import Path
 import sys
-import tempfile
-import io
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent))
@@ -37,19 +42,140 @@ from services.protection_checker import ProtectionChecker
 from services.llm_interpreter import LLMClauseInterpreter
 from services.negotiation_engine import NegotiationEngine
 from services.market_comparator import MarketComparator
+from services.summary_generator import SummaryGenerator
 
 # Import PDF generator
 from reporter.pdf_generator import generate_pdf_report
 
-# Initialize logger
-ContractAnalyzerLogger.setup(log_dir="logs", app_name="contract_analyzer")
-logger = ContractAnalyzerLogger.get_logger()
+# ============================================================================
+# CUSTOM SERIALIZATION
+# ============================================================================
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """
+    Custom JSON encoder that handles NumPy types and custom objects
+    """
+    def default(self, obj: Any) -> Any:
+        """
+        Convert non-serializable objects to JSON-serializable types
+        """
+        # NumPy types
+        if isinstance(obj, (np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.int32, np.int64, np.int8, np.uint8)):
+            return int(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif hasattr(obj, 'item'):  
+            # numpy scalar types
+            return obj.item()
+        
+        # Custom objects with to_dict method
+        elif hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        
+        # Pydantic models
+        elif hasattr(obj, 'dict'):
+            return obj.dict()
+        
+        # Handle other types
+        elif isinstance(obj, (set, tuple)):
+            return list(obj)
+        
+        return super().default(obj)
+
+
+class NumpyJSONResponse(JSONResponse):
+    """
+    Custom JSON response that handles NumPy types
+    """
+    def render(self, content: Any) -> bytes:
+        """
+        Render content with NumPy type handling
+        """
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            cls=NumpyJSONEncoder,
+        ).encode("utf-8")
+
+
+def convert_numpy_types(obj: Any) -> Any:
+    """
+    Recursively convert numpy types to Python native types
+    """
+    if obj is None:
+        return None
+    
+    # Handle dictionaries
+    if isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    
+    # Handle lists, tuples, sets
+    elif isinstance(obj, (list, tuple, set)):
+        return [convert_numpy_types(item) for item in obj]
+    
+    # Handle NumPy types
+    elif isinstance(obj, (np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, (np.int32, np.int64, np.int8, np.uint8)):
+        return int(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif hasattr(obj, 'item'):  
+        return obj.item()
+    
+    # Handle custom objects with to_dict method
+    elif hasattr(obj, 'to_dict'):
+        return convert_numpy_types(obj.to_dict())
+    
+    # Handle Pydantic models
+    elif hasattr(obj, 'dict'):
+        return convert_numpy_types(obj.dict())
+    
+    # Return as-is for other types
+    else:
+        return obj
+
+
+def safe_serialize_response(data: Any) -> Any:
+    """
+    Safely serialize response data ensuring all types are JSON-compatible
+    """
+    return convert_numpy_types(data)
+
 
 # ============================================================================
 # PYDANTIC SCHEMAS
 # ============================================================================
 
-class HealthResponse(BaseModel):
+class SerializableBaseModel(BaseModel):
+    """
+    Base model with enhanced serialization for NumPy types
+    """
+    def dict(self, *args, **kwargs) -> Dict[str, Any]:
+        """
+        Override dict method to handle NumPy types
+        """
+        data = super().dict(*args, **kwargs)
+        return convert_numpy_types(data)
+    
+    def json(self, *args, **kwargs) -> str:
+        """
+        Override json method to handle NumPy types
+        """
+        data = self.dict(*args, **kwargs)
+        return json.dumps(data, cls=NumpyJSONEncoder, *args, **kwargs)
+
+
+class HealthResponse(SerializableBaseModel):
     """Health check response"""
     status: str
     version: str
@@ -58,14 +184,16 @@ class HealthResponse(BaseModel):
     services_loaded: int
     memory_usage_mb: float
 
-class AnalysisOptions(BaseModel):
+
+class AnalysisOptions(SerializableBaseModel):
     """Analysis options"""
     max_clauses: int = Field(default=15, ge=5, le=30)
     interpret_clauses: bool = Field(default=True)
     generate_negotiation_points: bool = Field(default=True)
     compare_to_market: bool = Field(default=True)
 
-class AnalysisResult(BaseModel):
+
+class AnalysisResult(SerializableBaseModel):
     """Complete analysis result"""
     analysis_id: str
     timestamp: str
@@ -81,11 +209,21 @@ class AnalysisResult(BaseModel):
     metadata: Dict[str, Any]
     pdf_available: bool = True
 
-class ErrorResponse(BaseModel):
+
+class ErrorResponse(SerializableBaseModel):
     """Error response"""
     error: str
     detail: str
     timestamp: str
+
+
+class FileValidationResponse(SerializableBaseModel):
+    """File validation response"""
+    valid: bool
+    message: str
+    confidence: Optional[float] = None
+    report: Optional[Dict[str, Any]] = None
+
 
 # ============================================================================
 # SERVICE INITIALIZATION WITH FULL PRE-LOADING
@@ -234,7 +372,7 @@ class PreloadedAnalysisService:
             
             # Step 1: Classify contract
             classification = self.services["classifier"].classify_contract(contract_text)
-            classification_dict = classification.to_dict()
+            classification_dict = safe_serialize_response(classification.to_dict())
             actual_category = classification.category
             
             log_info(f"Contract classified as: {actual_category}")
@@ -255,7 +393,7 @@ class PreloadedAnalysisService:
             
             # Extract clauses
             clauses = extractor.extract_clauses(contract_text, options.max_clauses)
-            clauses_dict = [clause.to_dict() for clause in clauses]
+            clauses_dict = [safe_serialize_response(clause.to_dict()) for clause in clauses]
             log_info(f"Extracted {len(clauses)} clauses")
             
             # Step 3: Map to ContractType and get appropriate risk analyzer
@@ -279,17 +417,17 @@ class PreloadedAnalysisService:
             
             # Analyze risk
             risk_score = risk_analyzer.analyze_risk(contract_text, clauses)
-            risk_dict = risk_score.to_dict()
+            risk_dict = safe_serialize_response(risk_score.to_dict())
             log_info(f"Risk analysis completed: {risk_dict['overall_score']}/100")
             
             # Step 4: Find unfavorable terms
             unfavorable_terms = self.services["term_analyzer"].analyze_unfavorable_terms(contract_text, clauses)
-            unfavorable_dict = [term.to_dict() for term in unfavorable_terms]
+            unfavorable_dict = [safe_serialize_response(term.to_dict()) for term in unfavorable_terms]
             log_info(f"Found {len(unfavorable_terms)} unfavorable terms")
             
             # Step 5: Check missing protections
             missing_protections = self.services["protection_checker"].check_missing_protections(contract_text, clauses)
-            missing_dict = [prot.to_dict() for prot in missing_protections]
+            missing_dict = [safe_serialize_response(prot.to_dict()) for prot in missing_protections]
             log_info(f"Found {len(missing_protections)} missing protections")
             
             # Optional steps
@@ -302,7 +440,7 @@ class PreloadedAnalysisService:
                     interpretations = self.services["interpreter"].interpret_clauses(
                         clauses, min(10, options.max_clauses)
                     )
-                    interpretations_dict = [interp.to_dict() for interp in interpretations]
+                    interpretations_dict = [safe_serialize_response(interp.to_dict()) for interp in interpretations]
                     log_info(f"Interpreted {len(interpretations)} clauses")
                 except Exception as e:
                     log_error(f"Clause interpretation failed: {e}")
@@ -313,7 +451,7 @@ class PreloadedAnalysisService:
                     negotiation_points = self.services["negotiation_engine"].generate_negotiation_points(
                         risk_score, unfavorable_terms, missing_protections, clauses, 7
                     )
-                    negotiation_dict = [point.to_dict() for point in negotiation_points]
+                    negotiation_dict = [safe_serialize_response(point.to_dict()) for point in negotiation_points]
                     log_info(f"Generated {len(negotiation_points)} negotiation points")
                 except Exception as e:
                     log_error(f"Negotiation points generation failed: {e}")
@@ -322,7 +460,7 @@ class PreloadedAnalysisService:
             if options.compare_to_market:
                 try:
                     market_comparisons = self.services["market_comparator"].compare_to_market(clauses)
-                    market_dict = [comp.to_dict() for comp in market_comparisons]
+                    market_dict = [safe_serialize_response(comp.to_dict()) for comp in market_comparisons]
                     log_info(f"Compared {len(market_comparisons)} clauses to market")
                 except Exception as e:
                     log_error(f"Market comparison failed: {e}")
@@ -330,7 +468,7 @@ class PreloadedAnalysisService:
             
             # Generate executive summary
             executive_summary = self._generate_executive_summary(
-                classification_dict, risk_dict, unfavorable_dict, missing_dict
+                classification_dict, risk_dict, unfavorable_dict, missing_dict, clauses,
             )
             
             # Build result
@@ -365,52 +503,86 @@ class PreloadedAnalysisService:
             raise
     
     def _generate_executive_summary(self, classification: Dict, risk_score: Dict, 
-                                   unfavorable_terms: List, missing_protections: List) -> str:
-        """Generate executive summary"""
-        category = classification.get("category", "Unknown")
-        score = risk_score.get("overall_score", 0)
-        risk_level = risk_score.get("risk_level", "UNKNOWN")
+                               unfavorable_terms: List, missing_protections: List,
+                               clauses: List[Dict]) -> str:
+        """Generate executive summary using LLM"""
+        summary_generator = SummaryGenerator()
         
-        critical_terms = sum(1 for t in unfavorable_terms if t.get('severity') == 'critical')
-        critical_protections = sum(1 for p in missing_protections if p.get('importance') == 'critical')
-        
-        if score >= 80:
-            risk_msg = "CRITICAL ATTENTION REQUIRED"
-        elif score >= 60:
-            risk_msg = "SIGNIFICANT CONCERNS"
-        elif score >= 40:
-            risk_msg = "MODERATE RISK"
-        else:
-            risk_msg = "LOW RISK"
-        
-        return f"This {category} contract scored {score}/100 ({risk_level.upper()} risk). {risk_msg}. Found {len(unfavorable_terms)} unfavorable terms ({critical_terms} critical) and {len(missing_protections)} missing protections ({critical_protections} critical). Review detailed analysis below."
+        return summary_generator.generate_executive_summary(
+            classification=classification,
+            risk_analysis=risk_score,
+            unfavorable_terms=unfavorable_terms,
+            missing_protections=missing_protections,
+            clauses=clauses
+        )
 
 # ============================================================================
-# FASTAPI APP
+# FASTAPI APPLICATION
 # ============================================================================
+
+# Global instances
+analysis_service: Optional[PreloadedAnalysisService] = None
+app_start_time = time.time()
+
+# Initialize logger
+ContractAnalyzerLogger.setup(log_dir="logs", app_name="contract_analyzer")
+logger = ContractAnalyzerLogger.get_logger()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan events for startup and shutdown"""
+    global analysis_service
+    
+    # Startup
+    log_info(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} STARTING UP...")
+    log_info("=" * 80)
+    
+    try:
+        # Initialize analysis service
+        analysis_service = PreloadedAnalysisService()
+        log_info("✅ All services initialized successfully")
+        
+    except Exception as e:
+        log_error(f"Startup failed: {e}")
+        raise
+    
+    log_info(f"📍 Server: {settings.HOST}:{settings.PORT}")
+    log_info("=" * 80)
+    log_info("✅ AI Contract Risk Analyzer Ready!")
+    
+    try:
+        yield
+    finally:
+        # Shutdown - This runs on normal shutdown and KeyboardInterrupt
+        log_info("🛑 Shutting down server...")
+        log_info("✅ Server shutdown complete")
+
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="AI-powered contract risk analysis with complete model pre-loading",
     docs_url="/api/docs",
-    redoc_url="/api/redoc"
+    redoc_url="/api/redoc",
+    default_response_class=NumpyJSONResponse,
+    lifespan=lifespan
 )
+
+# Get absolute paths
+BASE_DIR = Path(__file__).parent
+STATIC_DIR = BASE_DIR / "static"
 
 # Serve static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# CORS middleware
+# Enhanced CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
-    allow_methods=settings.CORS_ALLOW_METHODS,
-    allow_headers=settings.CORS_ALLOW_HEADERS
+    allow_origins=["*"],  # For development - restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
-# Initialize pre-loaded analysis service
-analysis_service = PreloadedAnalysisService()
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -468,11 +640,14 @@ def validate_contract_text(text: str) -> tuple[bool, str]:
 @app.get("/")
 async def serve_frontend():
     """Serve the frontend"""
-    return FileResponse("static/index.html")
+    return FileResponse(str(STATIC_DIR / "index.html"))
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint with service status"""
+    if not analysis_service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    
     service_status = analysis_service.get_service_status()
     
     return HealthResponse(
@@ -487,6 +662,8 @@ async def health_check():
 @app.get("/api/v1/status")
 async def get_detailed_status():
     """Get detailed service status"""
+    if not analysis_service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
     return analysis_service.get_service_status()
 
 @app.post("/api/v1/analyze/file", response_model=AnalysisResult)
@@ -498,6 +675,9 @@ async def analyze_contract_file(
     compare_to_market: bool = Form(True)
 ):
     """Analyze uploaded contract file - DIRECT SYNC FLOW"""
+    if not analysis_service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    
     try:
         # Validate file
         is_valid, message = validate_file(file)
@@ -552,6 +732,9 @@ async def analyze_contract_text(
     compare_to_market: bool = Form(True)
 ):
     """Analyze pasted contract text - DIRECT SYNC FLOW"""
+    if not analysis_service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    
     try:
         # Validate contract text
         is_valid, message = validate_contract_text(contract_text)
@@ -609,6 +792,9 @@ async def generate_pdf_from_analysis(analysis_result: Dict[str, Any]):
 @app.get("/api/v1/categories")
 async def get_contract_categories():
     """Get list of supported contract categories"""
+    if not analysis_service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    
     try:
         categories = analysis_service.services["classifier"].get_all_categories()
         return {"categories": categories}
@@ -616,55 +802,55 @@ async def get_contract_categories():
         log_error(f"Categories fetch failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get categories: {str(e)}")
 
-@app.post("/api/v1/validate/file")
+@app.post("/api/v1/validate/file", response_model=FileValidationResponse)
 async def validate_contract_file(file: UploadFile = File(...)):
     """Quick validation endpoint"""
     try:
         is_valid, message = validate_file(file)
         if not is_valid:
-            return {"valid": False, "message": message}
+            return FileValidationResponse(valid=False, message=message)
         
         contract_text = read_contract_file(file)
         
         # Validate text length
         is_valid_text, text_message = validate_contract_text(contract_text)
         if not is_valid_text:
-            return {"valid": False, "message": text_message}
+            return FileValidationResponse(valid=False, message=text_message)
         
         # Validate contract structure using ContractValidator
         validator = ContractValidator()
         report = validator.get_validation_report(contract_text)
         
-        return {
-            "valid": report["scores"]["total"] > 50 and is_valid_text,
-            "message": "Contract appears valid" if report["scores"]["total"] > 50 else "May not be a valid contract",
-            "confidence": report["scores"]["total"],
-            "report": report
-        }
+        return FileValidationResponse(
+            valid=report["scores"]["total"] > 50 and is_valid_text,
+            message="Contract appears valid" if report["scores"]["total"] > 50 else "May not be a valid contract",
+            confidence=report["scores"]["total"],
+            report=report
+        )
         
     except Exception as e:
         log_error(f"File validation failed: {e}")
         raise HTTPException(status_code=400, detail=f"Validation failed: {str(e)}")
 
-@app.post("/api/v1/validate/text")
+@app.post("/api/v1/validate/text", response_model=FileValidationResponse)
 async def validate_contract_text_endpoint(contract_text: str = Form(...)):
     """Validate pasted contract text"""
     try:
         # Validate text length
         is_valid, message = validate_contract_text(contract_text)
         if not is_valid:
-            return {"valid": False, "message": message}
+            return FileValidationResponse(valid=False, message=message)
         
         # Validate contract structure using ContractValidator
         validator = ContractValidator()
         report = validator.get_validation_report(contract_text)
         
-        return {
-            "valid": report["scores"]["total"] > 50 and is_valid,
-            "message": "Contract appears valid" if report["scores"]["total"] > 50 else "May not be a valid contract",
-            "confidence": report["scores"]["total"],
-            "report": report
-        }
+        return FileValidationResponse(
+            valid=report["scores"]["total"] > 50 and is_valid,
+            message="Contract appears valid" if report["scores"]["total"] > 50 else "May not be a valid contract",
+            confidence=report["scores"]["total"],
+            report=report
+        )
         
     except Exception as e:
         log_error(f"Text validation failed: {e}")
@@ -677,7 +863,7 @@ async def validate_contract_text_endpoint(contract_text: str = Form(...)):
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     """Handle HTTP exceptions"""
-    return JSONResponse(
+    return NumpyJSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
             error=exc.detail,
@@ -690,7 +876,7 @@ async def http_exception_handler(request, exc):
 async def general_exception_handler(request, exc):
     """Handle general exceptions"""
     log_error(f"Unhandled exception: {exc}")
-    return JSONResponse(
+    return NumpyJSONResponse(
         status_code=500,
         content=ErrorResponse(
             error="Internal server error",
@@ -700,34 +886,40 @@ async def general_exception_handler(request, exc):
     )
 
 # ============================================================================
-# STARTUP & SHUTDOWN
+# REQUEST LOGGING MIDDLEWARE
 # ============================================================================
 
-@app.on_event("startup")
-async def startup_event():
-    """Startup event - Services are already pre-loaded"""
-    log_info(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} STARTED")
-    log_info(f"📍 Server: {settings.HOST}:{settings.PORT}")
-    log_info(f"🔧 All models and services pre-loaded")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Shutdown event"""
-    log_info("🛑 Shutting down server...")
-    log_info("✅ Server shutdown complete")
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    
+    log_info(f"API Request: {request.method} {request.url.path} - Status: {response.status_code} - Duration: {process_time:.3f}s")
+    
+    return response
 
 # ============================================================================
 # MAIN
 # ============================================================================
-
 if __name__ == "__main__":
-    import uvicorn
+    def signal_handler(sig, frame):
+        print("\n👋 Received Ctrl+C, shutting down gracefully...")
+        sys.exit(0)
     
-    uvicorn.run(
-        "app:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.RELOAD,
-        workers=1,  # Single worker for synchronous flow
-        log_level=settings.LOG_LEVEL.lower()
-    )
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        uvicorn.run(
+            "app:app",
+            host=settings.HOST,
+            port=settings.PORT,
+            reload=settings.RELOAD,
+            workers=1,
+            log_level=settings.LOG_LEVEL.lower()
+        )
+    except KeyboardInterrupt:
+        print("\n🎯 Server stopped by user")
+    except Exception as e:
+        log_error(f"Server error: {e}")
+        sys.exit(1)
