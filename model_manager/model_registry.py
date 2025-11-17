@@ -25,6 +25,7 @@ class ModelType(Enum):
     LEGAL_BERT = "legal-bert"
     EMBEDDING  = "embedding"
     TOKENIZER  = "tokenizer"
+    CLASSIFIER = "classifier"
 
 
 class ModelStatus(Enum):

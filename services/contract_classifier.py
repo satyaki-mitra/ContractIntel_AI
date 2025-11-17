@@ -17,140 +17,98 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.logger import log_info
 from utils.logger import log_error
+from config.risk_rules import ContractType
+from config.model_config import ModelConfig
 from utils.text_processor import TextProcessor
 from utils.logger import ContractAnalyzerLogger
-
-
-@dataclass
-class ContractCategory:
-    """
-    Contract classification result with metadata
-    """
-    category               : str
-    subcategory            : Optional[str]
-    confidence             : float
-    reasoning              : List[str]
-    detected_keywords      : List[str]
-    alternative_categories : List[Tuple[str, float]] = None  # (category, confidence) pairs
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert to dictionary for serialization
-        """
-        return {"category"               : self.category,
-                "subcategory"            : self.subcategory,
-                "confidence"             : round(self.confidence, 3),
-                "reasoning"              : self.reasoning,
-                "detected_keywords"      : self.detected_keywords,
-                "alternative_categories" : [{"category": cat, "confidence": round(conf, 3)} for cat, conf in (self.alternative_categories or [])]
-               }
+from services.data_models import ContractCategory
 
 
 class ContractClassifier:
     """
-    Sophisticated contract categorization using:
+    Contract categorization using:
     1. Legal-BERT embeddings + semantic similarity
     2. Multi-label classification (a contract can be multiple types)
     3. Hierarchical categories (Employment -> Full-Time/Contract/Internship)
     4. Confidence scoring with explanations
     """
-    # CATEGORY HIERARCHY WITH KEYWORDS
+    # CATEGORY HIERARCHY WITH KEYWORDS - UPDATED TO MATCH YOUR CATEGORIES
     CATEGORY_HIERARCHY   = {'employment'            : {'subcategories' : ['full_time', 'part_time', 'contract_worker', 'internship', 'executive'],
-                                                       'keywords'      : ['employee', 'employment', 'job', 'position', 'salary', 'benefits', 'annual leave', 'sick leave', 'probation', 'job description', 'work hours', 'overtime', 'performance review', 'bonus structure'],
-                                                       'weight'        : 1.0,
+                                                       'keywords'      : ['employee', 'employment', 'employer', 'job', 'position', 'staff', 'salary', 'wages', 'compensation', 'payroll', 'benefits', 'health insurance', 'retirement', 'pension', '401(k)', 'vacation', 'paid time off', 'sick leave', 'holidays', 'probation', 'performance review', 'promotion', 'termination', 'job description', 'duties', 'responsibilities', 'work hours', 'overtime', 'timekeeping', 'attendance', 'confidentiality', 'non-compete', 'non-solicitation', 'intellectual property', 'inventions', 'work product', 'severance', 'notice period', 'resignation', 'dismissal'],
+                                                       'weight'        : 1.1,
                                                       },
                             'consulting'            : {'subcategories' : ['independent_contractor', 'advisory', 'professional_services', 'freelance'],
-                                                       'keywords'      : ['consultant', 'consulting', 'independent contractor', 'statement of work', 'deliverables', 'professional services', 'hourly rate', 'project scope', 'milestone', 'acceptance criteria', 'work product'],
+                                                       'keywords'      : ['consultant', 'consulting', 'independent contractor', 'statement of work', 'deliverables', 'professional services', 'hourly rate', 'project scope', 'milestone', 'acceptance criteria', 'work product', '1099', 'self-employed', 'contractor', 'consulting services', 'expert advice', 'advisory services', 'project basis', 'task order'],
                                                        'weight'        : 1.0,
                                                       },
                             'nda'                   : {'subcategories' : ['mutual_nda', 'unilateral_nda', 'confidentiality_agreement'],
-                                                       'keywords'      : ['non-disclosure', 'confidentiality', 'proprietary information', 'nda', 'disclosure agreement', 'trade secret', 'confidential information', 'receiving party', 'disclosing party', 'confidentiality obligation'],
-                                                       'weight'        : 1.2, 
+                                                       'keywords'      : ['non-disclosure', 'confidentiality', 'proprietary information', 'nda', 'disclosure agreement', 'trade secret', 'confidential information', 'receiving party', 'disclosing party', 'confidentiality obligation', 'non-use', 'non-circumvention', 'secrecy', 'protected information', 'confidentiality period', 'return of information'],
+                                                       'weight'        : 1.0, 
                                                       },
-                            'technology'            : {'subcategories' : ['software_license', 'saas', 'cloud_services', 'development', 'api_access'],
-                                                       'keywords'      : ['software', 'license', 'saas', 'subscription', 'source code', 'object code', 'api', 'cloud', 'hosting', 'maintenance', 'updates', 'support', 'uptime', 'service level'],
-                                                       'weight'        : 1.0,
-                                                      },
-                            'intellectual_property' : {'subcategories' : ['ip_assignment', 'licensing', 'patent', 'trademark', 'copyright'],
-                                                       'keywords'      : ['intellectual property', 'ip', 'copyright', 'patent', 'trademark', 'work product', 'inventions', 'ip rights', 'ownership', 'assignment of rights', 'license grant', 'royalty'],
+                            'software'              : {'subcategories' : ['software_license', 'saas', 'cloud_services', 'development', 'api_access'],
+                                                       'keywords'      : ['software', 'license', 'saas', 'subscription', 'source code', 'object code', 'api', 'cloud', 'hosting', 'maintenance', 'updates', 'support', 'uptime', 'service level', 'software as a service', 'platform', 'application', 'user license', 'perpetual license', 'subscription fee', 'end user license agreement', 'eula'],
                                                        'weight'        : 1.1,
                                                       },
-                            'real_estate'           : {'subcategories' : ['residential_lease', 'commercial_lease', 'sublease', 'purchase_agreement'],
-                                                       'keywords'      : ['landlord', 'tenant', 'lease', 'premises', 'rent', 'property', 'security deposit', 'utilities', 'maintenance', 'repairs', 'eviction', 'lease term', 'renewal', 'square footage'],
+                            'service'               : {'subcategories' : ['master_services', 'maintenance', 'support', 'subscription'],
+                                                       'keywords'      : ['service provider', 'services', 'sla', 'service level agreement', 'uptime', 'response time', 'support', 'maintenance', 'service credits', 'performance metrics', 'implementation', 'professional services', 'service description', 'service fees', 'service term', 'service delivery', 'service scope'],
                                                        'weight'        : 1.0,
                                                       },
-                            'financial'             : {'subcategories' : ['loan', 'mortgage', 'credit', 'investment', 'promissory_note'],
-                                                       'keywords'      : ['loan', 'borrower', 'lender', 'principal', 'interest rate', 'collateral', 'default', 'repayment', 'amortization', 'promissory note', 'security interest', 'mortgage'],
+                            'partnership'           : {'subcategories' : ['business_partnership', 'joint_venture', 'strategic_alliance'],
+                                                       'keywords'      : ['partnership', 'joint venture', 'equity', 'shares', 'profit sharing', 'loss allocation', 'management', 'governance', 'voting rights', 'dissolution', 'capital contribution', 'distribution', 'membership interest', 'operating agreement', 'board of directors', 'partnership agreement'],
                                                        'weight'        : 1.0,
                                                       },
-                            'business'              : {'subcategories' : ['partnership', 'joint_venture', 'shareholders', 'llc_operating', 'merger'],
-                                                       'keywords'      : ['partnership', 'joint venture', 'equity', 'shares', 'profit sharing', 'loss allocation', 'management', 'governance', 'voting rights', 'dissolution', 'capital contribution', 'distribution'],
+                            'lease'                 : {'subcategories' : ['residential_lease', 'commercial_lease', 'sublease', 'equipment_lease'],
+                                                       'keywords'      : ['landlord', 'tenant', 'lease', 'premises', 'rent', 'property', 'security deposit', 'utilities', 'maintenance', 'repairs', 'eviction', 'lease term', 'renewal', 'square footage', 'rental agreement', 'lessor', 'lessee', 'property management', 'common areas', 'quiet enjoyment'],
                                                        'weight'        : 1.0,
                                                       },
-                            'sales'                 : {'subcategories' : ['purchase_order', 'sales_agreement', 'distribution', 'supply_agreement'],
-                                                       'keywords'      : ['purchase', 'sale', 'buyer', 'seller', 'goods', 'products', 'delivery', 'shipment', 'payment terms', 'invoice', 'purchase price', 'quantity', 'specifications'],
+                            'purchase'              : {'subcategories' : ['asset_purchase', 'stock_purchase', 'goods_purchase'],
+                                                       'keywords'      : ['purchase', 'sale', 'buyer', 'seller', 'goods', 'products', 'delivery', 'shipment', 'payment terms', 'invoice', 'purchase price', 'quantity', 'specifications', 'purchase order', 'sales agreement', 'bill of sale', 'title transfer', 'risk of loss', 'closing date'],
                                                        'weight'        : 1.0,
                                                       },
-                            'service_agreement'     : {'subcategories' : ['master_services', 'maintenance', 'support', 'subscription'],
-                                                       'keywords'      : ['service provider', 'services', 'sla', 'service level agreement', 'uptime', 'response time', 'support', 'maintenance', 'service credits', 'performance metrics', 'implementation'],
-                                                       'weight'        : 1.0,
-                                                      },
-                            'vendor'                : {'subcategories' : ['supplier_agreement', 'procurement', 'master_vendor'],
-                                                       'keywords'      : ['vendor', 'supplier', 'procurement', 'supply chain', 'purchase order', 'fulfillment', 'vendor management', 'pricing', 'terms of supply'],
-                                                       'weight'        : 1.0,
-                                                      },   
-                            'agency'                : {'subcategories' : ['marketing_agency', 'recruiting', 'representation'],
-                                                       'keywords'      : ['agent', 'agency', 'principal', 'commission', 'representation', 'authority', 'scope of authority', 'compensation', 'exclusive rights', 'territory'],
-                                                       'weight'        : 1.0,
+                            'general'               : {'subcategories' : ['standard_agreement', 'basic_contract'],
+                                                       'keywords'      : ['agreement', 'contract', 'party', 'parties', 'terms and conditions', 'governing law', 'jurisdiction', 'dispute resolution', 'force majeure', 'notice', 'amendment', 'assignment', 'severability', 'entire agreement'],
+                                                       'weight'        : 0.8,
                                                       },
                            } 
     
     # SUBCATEGORY DETECTION PATTERNS
-    SUBCATEGORY_PATTERNS = {'full_time'                 : ['full-time', 'full time', 'permanent', 'regular employee', '40 hours', 'exempt employee'],
-                            'part_time'                 : ['part-time', 'part time', 'hours per week', 'non-exempt', 'hourly employee'],
-                            'contract_worker'           : ['independent contractor', 'contract', 'fixed term', 'temporary', 'contract period'],
-                            'internship'                : ['intern', 'internship', 'student', 'training program', 'educational'],
-                            'executive'                 : ['executive', 'ceo', 'cfo', 'cto', 'president', 'vice president', 'director'],
-                            'independent_contractor'    : ['independent contractor', '1099', 'contractor', 'self-employed'],
-                            'advisory'                  : ['advisor', 'advisory', 'counsel', 'consulting services', 'expert advice'],
-                            'professional_services'     : ['professional services', 'consulting services', 'engagement'],
-                            'freelance'                 : ['freelance', 'freelancer', 'gig', 'project-based'],
-                            'mutual_nda'                : ['mutual', 'both parties', 'each party', 'reciprocal'],
-                            'unilateral_nda'            : ['one-way', 'receiving party', 'disclosing party', 'unilateral'],
-                            'confidentiality_agreement' : ['confidentiality agreement', 'secrecy agreement'],
-                            'residential_lease'         : ['residential', 'apartment', 'house', 'dwelling', 'residential property'],
-                            'commercial_lease'          : ['commercial', 'office space', 'retail space', 'commercial property'],
-                            'sublease'                  : ['sublease', 'sublet', 'subtenant'],
-                            'purchase_agreement'        : ['purchase agreement', 'real property sale', 'deed'],
-                            'loan'                      : ['loan agreement', 'term loan', 'credit facility'],
-                            'mortgage'                  : ['mortgage', 'mortgagor', 'mortgagee', 'real property'],
-                            'credit'                    : ['line of credit', 'credit agreement', 'revolving credit'],
-                            'investment'                : ['investment agreement', 'investor', 'investment'],
-                            'promissory_note'           : ['promissory note', 'note payable'],
-                            'saas'                      : ['software as a service', 'saas', 'subscription', 'cloud-based'],
-                            'software_license'          : ['software license', 'license key', 'perpetual license', 'end user license'],
-                            'cloud_services'            : ['cloud services', 'cloud computing', 'infrastructure'],
-                            'development'               : ['software development', 'custom development', 'development services'],
-                            'api_access'                : ['api', 'application programming interface', 'api access'],
-                            'ip_assignment'             : ['assignment', 'transfer of rights', 'work for hire'],
-                            'licensing'                 : ['license', 'licensing agreement', 'license grant'],
-                            'patent'                    : ['patent', 'patent rights', 'patent license'],
-                            'trademark'                 : ['trademark', 'service mark', 'brand'],
-                            'copyright'                 : ['copyright', 'copyrighted work'],
-                            'partnership'               : ['partnership', 'general partnership', 'limited partnership'],
-                            'joint_venture'             : ['joint venture', 'jv agreement'],
-                            'shareholders'              : ['shareholders agreement', 'stock purchase', 'equity'],
-                            'llc_operating'             : ['operating agreement', 'llc', 'limited liability company'],
-                            'merger'                    : ['merger', 'acquisition', 'm&a', 'consolidation'],
-                            'purchase_order'            : ['purchase order', 'po', 'order confirmation'],
-                            'sales_agreement'           : ['sales agreement', 'purchase agreement'],
-                            'distribution'              : ['distribution agreement', 'distributor', 'distribution rights'],
-                            'supply_agreement'          : ['supply agreement', 'supplier agreement'],
-                            'master_services'           : ['master services agreement', 'msa', 'master agreement'],
-                            'maintenance'               : ['maintenance agreement', 'maintenance services'],
-                            'support'                   : ['support agreement', 'technical support', 'customer support'],
-                            'subscription'              : ['subscription agreement', 'subscription service'],
+    SUBCATEGORY_PATTERNS = {'full_time'                 : ['full-time', 'full time', 'permanent', 'regular employee', '40 hours', 'exempt employee', 'salary basis'],
+                            'part_time'                 : ['part-time', 'part time', 'hours per week', 'non-exempt', 'hourly employee', 'temporary', 'seasonal'],
+                            'contract_worker'           : ['independent contractor', 'contract', 'fixed term', 'temporary', 'contract period', 'contract worker', 'contract employee'],
+                            'internship'                : ['intern', 'internship', 'student', 'training program', 'educational', 'college credit', 'unpaid intern'],
+                            'executive'                 : ['executive', 'ceo', 'cfo', 'cto', 'president', 'vice president', 'director', 'officer', 'executive compensation', 'stock options', 'golden parachute'],
+                            'independent_contractor'    : ['independent contractor', '1099', 'contractor', 'self-employed', 'freelance', 'consultant agreement'],
+                            'advisory'                  : ['advisor', 'advisory', 'counsel', 'consulting services', 'expert advice', 'advisory board', 'strategic advisory'],
+                            'professional_services'     : ['professional services', 'consulting services', 'engagement', 'service provider', 'professional firm'],
+                            'freelance'                 : ['freelance', 'freelancer', 'gig', 'project-based', 'freelance work', 'gig economy'],
+                            'mutual_nda'                : ['mutual', 'both parties', 'each party', 'reciprocal', 'mutual confidentiality', 'two-way'],
+                            'unilateral_nda'            : ['one-way', 'receiving party', 'disclosing party', 'unilateral', 'single party', 'one party'],
+                            'confidentiality_agreement' : ['confidentiality agreement', 'secrecy agreement', 'proprietary information agreement'],
+                            'software_license'          : ['software license', 'license key', 'perpetual license', 'end user license', 'software agreement'],
+                            'saas'                      : ['software as a service', 'saas', 'subscription', 'cloud-based', 'web-based', 'online service'],
+                            'cloud_services'            : ['cloud services', 'cloud computing', 'infrastructure', 'iaas', 'paas', 'cloud hosting'],
+                            'development'               : ['software development', 'custom development', 'development services', 'programming', 'coding'],
+                            'api_access'                : ['api', 'application programming interface', 'api access', 'api key', 'rest api', 'graphql'],
+                            'master_services'           : ['master services agreement', 'msa', 'master agreement', 'framework agreement'],
+                            'maintenance'               : ['maintenance agreement', 'maintenance services', 'preventive maintenance', 'repair services'],
+                            'support'                   : ['support agreement', 'technical support', 'customer support', 'help desk'],
+                            'subscription'              : ['subscription agreement', 'subscription service', 'recurring billing', 'subscription fee'],
+                            'business_partnership'      : ['partnership', 'general partnership', 'limited partnership', 'partnership agreement'],
+                            'joint_venture'             : ['joint venture', 'jv agreement', 'joint venture agreement', 'strategic alliance'],
+                            'strategic_alliance'        : ['strategic alliance', 'collaboration agreement', 'cooperation agreement'],
+                            'residential_lease'         : ['residential', 'apartment', 'house', 'dwelling', 'residential property', 'tenant', 'landlord', 'rental'],
+                            'commercial_lease'          : ['commercial', 'office space', 'retail space', 'commercial property', 'business premises', 'commercial tenant'],
+                            'sublease'                  : ['sublease', 'sublet', 'subtenant', 'sublessee', 'sublessor'],
+                            'equipment_lease'           : ['equipment lease', 'equipment rental', 'lease equipment', 'leased property'],
+                            'asset_purchase'            : ['asset purchase', 'business assets', 'asset sale', 'purchase assets'],
+                            'stock_purchase'            : ['stock purchase', 'share purchase', 'equity purchase', 'stock sale'],
+                            'goods_purchase'            : ['goods purchase', 'product purchase', 'merchandise', 'inventory purchase'],
+                            'standard_agreement'        : ['standard agreement', 'template agreement', 'boilerplate contract'],
+                            'basic_contract'            : ['basic contract', 'simple agreement', 'standard terms'],
                            }
+
+    DEFAULT_CONFIDENCE_THRESHOLD = 0.65 
+    MULTI_LABEL_THRESHOLD        = 0.55  
                         
 
     def __init__(self, model_loader):
@@ -205,17 +163,102 @@ class ContractClassifier:
                 raise
 
     
+    def _extract_classification_context(self, full_text: str) -> str:
+        """
+        Extract key legal sections for more accurate classification
+        Focuses on preamble, definitions, and core agreement sections
+        
+        Arguments:
+        ----------
+            full_text { str } : Full contract text
+        
+        Returns:
+        --------
+                { str }    : Context-rich excerpt for classification
+        """
+        sections = list()
+        
+        # First 2000 chars (usually contains parties, effective date, preamble)
+        sections.append(full_text[:2000])
+        
+        # WHEREAS clauses (recitals - explains purpose and background)
+        whereas_section = self._extract_section_between(full_text, "WHEREAS", "NOW THEREFORE")
+        
+        if whereas_section:
+            sections.append(whereas_section)
+        
+        # AGREEMENT section (core contractual terms)
+        agreement_section = self._extract_section_between(full_text, "AGREEMENT", "TERMS AND CONDITIONS")
+        
+        if not agreement_section:
+            agreement_section = self._extract_section_containing(full_text, ["AGREES AS FOLLOWS", "HEREBY AGREES"])
+        
+        if agreement_section:
+            sections.append(agreement_section)
+        
+        # Key definition sections
+        definitions_section = self._extract_section_containing(full_text, ["DEFINITIONS", "MEANING OF TERMS"])
+        
+        if definitions_section:
+            sections.append(definitions_section)
+        
+        # Combine and clean
+        context = " ".join([section.strip() for section in sections if section and section.strip()])
+        
+        # Fallback to original text if context extraction failed
+        return context if (len(context) > 500) else full_text
+
+
+    def _extract_section_between(self, text: str, start_marker: str, end_marker: str) -> Optional[str]:
+        """
+        Extract text between two markers (case-insensitive)
+        """
+        try:
+            pattern = re.compile(f"{re.escape(start_marker)}(.*?){re.escape(end_marker)}", re.IGNORECASE | re.DOTALL)
+            match   = pattern.search(text)
+            
+            return match.group(1).strip() if match else None
+        
+        except Exception:
+            return None
+
+
+    def _extract_section_containing(self, text: str, markers: List[str]) -> Optional[str]:
+        """
+        Extract section containing any of the markers
+        """
+        for marker in markers:
+            if marker.lower() in text.lower():
+                # Extract 500 chars around the marker
+                idx   = text.lower().find(marker.lower())
+                start = max(0, idx - 250)
+                end   = min(len(text), idx + len(marker) + 250)
+                
+                return text[start:end]
+        
+        return None
+
+    
     def _prepare_category_embeddings(self):
         """
         Pre-compute embeddings for each category template
         """
         log_info("Preparing category embeddings...")
         
-        for category, config in self.CATEGORY_HIERARCHY.items():
-            # Create representative template for each category
-            keywords_sample                    = config['keywords']  
-            template                           = (f"This is a {category.replace('_', ' ')} contract agreement involving {', '.join(keywords_sample)}.")
-            
+        # More specific templates for each category
+        category_templates = {
+            'employment': "Employment agreement between employer and employee covering salary benefits job duties work hours vacation sick leave performance reviews termination conditions confidentiality and intellectual property rights",
+            'consulting': "Consulting services agreement with independent contractor statement of work deliverables hourly rate project scope milestones acceptance criteria work product ownership and payment terms for professional services",
+            'nda': "Non-disclosure agreement protecting confidential information trade secrets proprietary data between parties with confidentiality obligations non-use provisions and return of information requirements",
+            'software': "Software license agreement or SaaS subscription for technology services including source code access updates maintenance support service level agreements uptime guarantees and API access",
+            'service': "Service level agreement for professional services maintenance support with performance metrics service credits response times uptime guarantees and implementation requirements",
+            'partnership': "Business partnership joint venture agreement covering equity shares profit distribution management governance voting rights dissolution terms and capital contributions",
+            'lease': "Real estate lease agreement for property rental covering premises description rent payments security deposits maintenance responsibilities utilities and eviction terms",
+            'purchase': "Sales purchase agreement for goods products with buyer seller terms covering delivery shipment payment terms invoices purchase price quantity specifications and title transfer",
+            'general': "General contract agreement with standard terms and conditions governing law jurisdiction dispute resolution force majeure notice provisions and general legal framework"
+        }
+        
+        for category, template in category_templates.items():
             # Encode template
             embedding                          = self.embedding_model.encode(template, convert_to_tensor = True)
             self.category_embeddings[category] = embedding
@@ -247,35 +290,38 @@ class ContractClassifier:
 
             { ContractCategory }     : ContractCategory object with classification results
         """
-        
         # Validate input
-        if not contract_text or len(contract_text) < 100:
+        if (not contract_text or (len(contract_text) < 100)):
             raise ValueError("Contract text too short for classification")
         
-        # Preprocess text (use first 3000 chars for efficiency)
-        text_excerpt = contract_text[:3000]
+        # Use default threshold if not specified
+        if min_confidence is None:
+            min_confidence = self.DEFAULT_CONFIDENCE_THRESHOLD
+
+        # Preprocess text 
+        text_excerpt = self._extract_classification_context(full_text = contract_text)
         
         log_info("Starting contract classification", 
                  text_length    = len(contract_text),
                  excerpt_length = len(text_excerpt),
                 )
         
-        # Step 1: Keyword scoring
-        keyword_scores    = self._score_keywords(contract_text.lower())
-        
-        # Step 2: Semantic similarity
-        semantic_scores   = self._semantic_similarity(text_excerpt)
-        
-        # Step 3: Legal-BERT semantic similarity (enhanced)
-        legal_bert_scores = self._legal_bert_similarity(text_excerpt)
-        
-        # Step 4: Combine scores (weighted average)
+        # Keyword scoring
+        keyword_scores    = self._score_keywords(text_lower = contract_text.lower())
+
+        # Semantic similarity
+        semantic_scores   = self._semantic_similarity(text = text_excerpt)
+
+        # Legal-BERT semantic similarity (enhanced)
+        legal_bert_scores = self._legal_bert_similarity(text = text_excerpt)
+
+        # Combine scores (weighted average)
         combined_scores   = self._combine_scores(keyword_scores    = keyword_scores,
                                                  semantic_scores   = semantic_scores,
                                                  legal_bert_scores = legal_bert_scores,
                                                 )
         
-        # Step 5: Get primary category
+        # Get primary category
         if not combined_scores:
             log_info("No categories detected, defaulting to 'general'")
             return ContractCategory(category          = "general",
@@ -288,23 +334,25 @@ class ContractClassifier:
         primary_category       = max(combined_scores, key = combined_scores.get)
         confidence             = combined_scores[primary_category]
         
-        # Step 6: Detect subcategory
-        subcategory            = self._detect_subcategory(contract_text, primary_category)
+        # Detect subcategory
+        subcategory            = self._detect_subcategory(text             = contract_text, 
+                                                          primary_category = primary_category,
+                                                         )
         
-        # Step 7: Generate reasoning
-        reasoning              = self._generate_reasoning(contract_text    = contract_text,
-                                                    primary_category = primary_category,
-                                                    subcategory      = subcategory,
-                                                    keyword_scores   = keyword_scores,
-                                                    semantic_scores  = semantic_scores,
-                                                    legal_bert_scores = legal_bert_scores,
-                                                    combined_scores  = combined_scores,
-                                                   )
+        # Generate reasoning
+        reasoning              = self._generate_reasoning(contract_text     = contract_text,
+                                                          primary_category  = primary_category,
+                                                          subcategory       = subcategory,
+                                                          keyword_scores    = keyword_scores,
+                                                          semantic_scores   = semantic_scores,
+                                                          legal_bert_scores = legal_bert_scores,
+                                                          combined_scores   = combined_scores,
+                                                         )
         
-        # Step 8: Extract detected keywords
+        # Extract detected keywords
         detected_keywords      = self._extract_detected_keywords(contract_text, primary_category)
         
-        # Step 9: Get alternative categories: Top 3 alternatives
+        # Get alternative categories: Top 3 alternatives
         alternative_categories = sorted([(cat, score) for cat, score in combined_scores.items() if cat != primary_category],
                                         key     = lambda x: x[1],
                                         reverse = True,
@@ -330,28 +378,41 @@ class ContractClassifier:
     def _score_keywords(self, text_lower: str) -> Dict[str, float]:
         """
         Score each category based on keyword presence
-        
+
         Arguments:
         ----------
             text_lower { str } : Lowercase contract text
-        
+
         Returns:
         --------
                { dict }        : Dictionary of {category: score}
         """
         scores = dict()
-        
         for category, config in self.CATEGORY_HIERARCHY.items():
-            keywords         = config['keywords']
-            weight           = config['weight']
+            keywords      = config['keywords']
+            weight        = config['weight']
             
-            # Count keyword matches
-            keyword_count    = sum(1 for keyword in keywords if keyword in text_lower)
+            # Count keyword matches with partial matching for multi-word terms
+            keyword_count = 0
             
+            for keyword in keywords:
+                # Check for exact match or partial match for multi-word terms
+                if ' ' in keyword:
+                    # For multi-word terms, check if all words appear in text
+                    words = keyword.split()
+                    if all(word in text_lower for word in words):
+                        keyword_count += 1
+                
+                else:
+                    # For single words, exact word boundary match
+                    if re.search(rf'\b{re.escape(keyword)}\b', text_lower):
+                        keyword_count += 1
+
             # Normalize by number of keywords and apply weight
             normalized_score = (keyword_count / len(keywords)) * weight
             
-            scores[category] = normalized_score
+            # Cap at 1.0
+            scores[category] = min(normalized_score, 1.0)
         
         return scores
     
@@ -397,19 +458,14 @@ class ContractClassifier:
         text_embedding = self._get_legal_bert_embedding(text)
         
         # Calculate similarity to each category's Legal-BERT embedding
-        similarities = dict()
+        similarities   = dict()
         
         for category in self.CATEGORY_HIERARCHY.keys():
             # Get pre-computed category embedding
-            cat_embedding = self._get_legal_bert_embedding(
-                f"This is a {category.replace('_', ' ')} contract agreement"
-            )
+            cat_embedding          = self._get_legal_bert_embedding(f"This is a {category.replace('_', ' ')} contract agreement")
             
             # Calculate cosine similarity
-            similarity = torch.nn.functional.cosine_similarity(
-                torch.tensor(text_embedding).unsqueeze(0),
-                torch.tensor(cat_embedding).unsqueeze(0)
-            ).item()
+            similarity             = torch.nn.functional.cosine_similarity(torch.tensor(text_embedding).unsqueeze(0), torch.tensor(cat_embedding).unsqueeze(0)).item()
             
             similarities[category] = similarity
         
@@ -422,7 +478,7 @@ class ContractClassifier:
         
         Arguments:
         ----------
-            text { str } : Input text
+            text { str }   : Input text
         
         Returns:
         --------
@@ -464,14 +520,15 @@ class ContractClassifier:
         combined          = dict()
         
         # Weights for each method
-        keyword_weight    = 0.30
-        semantic_weight   = 0.40
-        legal_bert_weight = 0.30
+        keyword_weight    = 0.35  
+        semantic_weight   = 0.35 
+        legal_bert_weight = 0.30 
         
         for category in self.CATEGORY_HIERARCHY.keys():
             score = (keyword_scores.get(category, 0) * keyword_weight + 
-                    semantic_scores.get(category, 0) * semantic_weight + 
-                    legal_bert_scores.get(category, 0) * legal_bert_weight)
+                     semantic_scores.get(category, 0) * semantic_weight + 
+                     legal_bert_scores.get(category, 0) * legal_bert_weight
+                    )
             
             combined[category] = score
         
@@ -519,9 +576,8 @@ class ContractClassifier:
         return None
     
 
-    def _generate_reasoning(self, contract_text: str, primary_category: str, subcategory: Optional[str], 
-                           keyword_scores: Dict[str, float], semantic_scores: Dict[str, float],
-                           legal_bert_scores: Dict[str, float], combined_scores: Dict[str, float]) -> List[str]:
+    def _generate_reasoning(self, contract_text: str, primary_category: str, subcategory: Optional[str], keyword_scores: Dict[str, float], 
+                            semantic_scores: Dict[str, float], legal_bert_scores: Dict[str, float], combined_scores: Dict[str, float]) -> List[str]:
         """
         Generate human-readable reasoning for classification
         
@@ -529,36 +585,38 @@ class ContractClassifier:
         --------
             { list } : List of reasoning statements
         """
-        reasoning      = list()
+        reasoning        = list()
         
         # Primary category reasoning
-        keyword_match  = keyword_scores.get(primary_category, 0)
-        semantic_match = semantic_scores.get(primary_category, 0)
+        keyword_match    = keyword_scores.get(primary_category, 0)
+        semantic_match   = semantic_scores.get(primary_category, 0)
         legal_bert_match = legal_bert_scores.get(primary_category, 0)
         
-        if (keyword_match > 0.5):
-            reasoning.append(f"Strong keyword indicators for {primary_category.replace('_', ' ')} category "
-                             f"({int(keyword_match * 100)}% keyword match)"
-                            )
+        # Keyword-based reasoning
+        if (keyword_match > 0.6):
+            reasoning.append(f"Strong keyword indicators for {primary_category.replace('_', ' ')} category ({int(keyword_match * 100)}% keyword match)")
 
         elif (keyword_match > 0.3):
-            reasoning.append(f"Moderate keyword presence for {primary_category.replace('_', ' ')} "
-                             f"({int(keyword_match * 100)}% keyword match)"
+            reasoning.append(f"Moderate keyword presence for {primary_category.replace('_', ' ')} ({int(keyword_match * 100)}% keyword match)")
+
+        elif (keyword_match > 0.1):
+            reasoning.append(f"Limited keyword indicators for {primary_category.replace('_', ' ')} ({int(keyword_match * 100)}% keyword match)")
+        
+        # Semantic similarity reasoning
+        if (semantic_match > 0.70):
+            reasoning.append(f"High semantic similarity to {primary_category.replace('_', ' ')} agreements (similarity: {semantic_match:.2f})")
+
+        elif (semantic_match > 0.55):
+            reasoning.append(f"Moderate semantic similarity to {primary_category.replace('_', ' ')} contracts (similarity: {semantic_match:.2f})"
                             )
         
-        if (semantic_match > 0.65):
-            reasoning.append(f"Contract language semantically similar to {primary_category.replace('_', ' ')} agreements "
-                             f"(similarity: {semantic_match:.2f})"
+        # Legal-BERT reasoning
+        if (legal_bert_match > 0.65):
+            reasoning.append(f"Legal-BERT analysis strongly supports {primary_category.replace('_', ' ')} classification (similarity: {legal_bert_match:.2f})"
                             )
 
-        elif (semantic_match > 0.50):
-            reasoning.append(f"Moderate semantic similarity to {primary_category.replace('_', ' ')} contracts "
-                             f"(similarity: {semantic_match:.2f})"
-                            )
-        
-        if (legal_bert_match > 0.60):
-            reasoning.append(f"Legal-BERT semantic analysis confirms {primary_category.replace('_', ' ')} classification "
-                             f"(similarity: {legal_bert_match:.2f})"
+        elif (legal_bert_match > 0.50):
+            reasoning.append(f"Legal-BERT analysis moderately supports {primary_category.replace('_', ' ')} classification (similarity: {legal_bert_match:.2f})"
                             )
         
         # Subcategory reasoning
@@ -568,12 +626,10 @@ class ContractClassifier:
         # Alternative categories (if close)
         sorted_scores = sorted(combined_scores.items(), key = lambda x: x[1], reverse = True)
         
-        if ((len(sorted_scores) > 1) and (sorted_scores[1][1] > 0.40)):
+        if ((len(sorted_scores) > 1) and (sorted_scores[1][1] > 0.30)):
             alt_category, alt_score = sorted_scores[1]
             
-            reasoning.append(f"Also contains elements of {alt_category.replace('_', ' ')} "
-                             f"(secondary match: {alt_score:.2f})"
-                            )
+            reasoning.append(f"Also contains elements of {alt_category.replace('_', ' ')} (secondary match: {alt_score:.2f})")
         
         # If no strong reasoning
         if not reasoning:
@@ -601,12 +657,12 @@ class ContractClassifier:
         
         detected   = [kw for kw in keywords if kw in text_lower]
 
-        # Top 10 keywords
-        return detected[:10]  
+        # Return all detected keywords
+        return detected
     
     
     @ContractAnalyzerLogger.log_execution_time("classify_multi_label")
-    def classify_multi_label(self, text: str, threshold: float = 0.45) -> List[ContractCategory]:
+    def classify_multi_label(self, text: str, threshold: float = None) -> List[ContractCategory]:
         """
         Classify as multiple categories if applicable (e.g., Employment + NDA, Consulting + IP Assignment)
         
@@ -620,23 +676,42 @@ class ContractClassifier:
         --------
                  { list }       : List of ContractCategory objects (sorted by confidence)
         """
+        # Use multi-label threshold if not specified
+        if threshold is None:
+            threshold = self.MULTI_LABEL_THRESHOLD
+
         log_info("Starting multi-label classification", threshold = threshold)
         
         # Get scores
-        keyword_scores    = self._score_keywords(text.lower())
-        semantic_scores   = self._semantic_similarity(text[:3000])
-        legal_bert_scores = self._legal_bert_similarity(text[:3000])
-        combined_scores   = self._combine_scores(keyword_scores, semantic_scores, legal_bert_scores)
+        keyword_scores    = self._score_keywords(text_lower = text.lower())
+        semantic_scores   = self._semantic_similarity(text = text)
+        legal_bert_scores = self._legal_bert_similarity(text = text)
+        combined_scores   = self._combine_scores(keyword_scores    = keyword_scores, 
+                                                 semantic_scores   = semantic_scores, 
+                                                 legal_bert_scores = legal_bert_scores,
+                                                )
         
         # Get all categories above threshold
         matches         = list()
 
         for category, score in combined_scores.items():
             if (score >= threshold):
-                subcategory = self._detect_subcategory(text, category)
-                reasoning   = self._generate_reasoning(text, category, subcategory, keyword_scores, 
-                                                     semantic_scores, legal_bert_scores, combined_scores)
-                keywords    = self._extract_detected_keywords(text, category)
+                subcategory = self._detect_subcategory(text             = text, 
+                                                       primary_category = category,
+                                                      )
+                                                  
+                reasoning   = self._generate_reasoning(contract_text     = text, 
+                                                       primary_category  = category, 
+                                                       subcategory       = subcategory, 
+                                                       keyword_scores    = keyword_scores, 
+                                                       semantic_scores   = semantic_scores, 
+                                                       legal_bert_scores = legal_bert_scores, 
+                                                       combined_scores   = combined_scores,
+                                                      )
+
+                keywords    = self._extract_detected_keywords(text     = text, 
+                                                              category = category,
+                                                             )
                 
                 matches.append(ContractCategory(category          = category,
                                                 subcategory       = subcategory,
@@ -658,18 +733,15 @@ class ContractClassifier:
         """
         Get human-readable description of a category
         """
-        descriptions = {'employment'            : 'Employment agreements governing employer-employee relationships',
-                        'consulting'            : 'Consulting and independent contractor agreements',
-                        'nda'                   : 'Non-disclosure and confidentiality agreements',
-                        'technology'            : 'Software licensing and technology service agreements',
-                        'intellectual_property' : 'IP assignment, licensing, and protection agreements',
-                        'real_estate'           : 'Property lease, rental, and purchase agreements',
-                        'financial'             : 'Loan, credit, and financial service agreements',
-                        'business'              : 'Partnership, joint venture, and corporate agreements',
-                        'sales'                 : 'Sales, purchase, and distribution agreements',
-                        'service_agreement'     : 'Professional service and maintenance agreements',
-                        'vendor'                : 'Vendor, supplier, and procurement agreements',
-                        'agency'                : 'Agency and representation agreements',
+        descriptions = {'employment'  : 'Employment agreements governing employer-employee relationships',
+                        'consulting'  : 'Consulting and independent contractor agreements',
+                        'nda'         : 'Non-disclosure and confidentiality agreements',
+                        'software'    : 'Software licensing and technology service agreements',
+                        'service'     : 'Professional service and maintenance agreements',
+                        'partnership' : 'Partnership, joint venture, and corporate agreements',
+                        'lease'       : 'Property lease, rental, and equipment lease agreements',
+                        'purchase'    : 'Sales, purchase, and goods transfer agreements',
+                        'general'     : 'General contract agreements with standard terms and conditions',
                        }
 
         return descriptions.get(category, 'General contract agreement')

@@ -12,38 +12,57 @@ class ContractValidator:
     Validate if document is a legal contract
     """
     # File constraints
-    MIN_CONTRACT_LENGTH = 300
+    MIN_CONTRACT_LENGTH = 500    
     MAX_CONTRACT_LENGTH = 500000  # 500KB text
     
     # Strong indicators of legal contracts (keyword: weight)
-    STRONG_INDICATORS   = {'agreement'          : 3, 
-                           'contract'           : 3, 
-                           'party'              : 2, 
-                           'parties'            : 2, 
-                           'whereas'            : 5, 
-                           'hereinafter'        : 5, 
-                           'witnesseth'         : 5, 
-                           'indemnification'    : 4, 
-                           'liability'          : 3, 
-                           'confidentiality'    : 3, 
-                           'termination'        : 3, 
-                           'governing law'      : 4, 
-                           'jurisdiction'       : 3, 
-                           'warranty'           : 3, 
-                           'representation'     : 3, 
-                           'covenant'           : 4, 
-                           'clause'             : 3, 
-                           'section'            : 2,
-                           'article'            : 2, 
-                           'hereby'             : 3, 
-                           'undersigned'        : 4, 
-                           'executed'           : 3,
-                           'consideration'      : 4, 
-                           'effective date'     : 3, 
-                           'in witness whereof' : 5, 
-                           'binding'            : 3, 
-                           'enforceable'        : 3, 
-                           'obligations'        : 2,
+    STRONG_INDICATORS   = {'agreement'             : 3, 
+                           'contract'              : 3, 
+                           'party'                 : 2, 
+                           'parties'               : 2, 
+                           'whereas'               : 5, 
+                           'hereinafter'           : 5, 
+                           'witnesseth'            : 5, 
+                           'indemnification'       : 4, 
+                           'liability'             : 3, 
+                           'confidentiality'       : 3, 
+                           'termination'           : 3, 
+                           'governing law'         : 4, 
+                           'jurisdiction'          : 3, 
+                           'warranty'              : 3, 
+                           'representation'        : 3, 
+                           'covenant'              : 4, 
+                           'clause'                : 3, 
+                           'section'               : 2,
+                           'article'               : 2, 
+                           'hereby'                : 3, 
+                           'undersigned'           : 4, 
+                           'executed'              : 3,
+                           'consideration'         : 4, 
+                           'effective date'        : 3, 
+                           'in witness whereof'    : 5, 
+                           'binding'               : 3, 
+                           'enforceable'           : 3, 
+                           'obligations'           : 2,
+                           'employment'            : 3, 
+                           'employee'              : 2, 
+                           'employer'              : 2,
+                           'probation'             : 3, 
+                           'salary'                : 2, 
+                           'compensation'          : 3,
+                           'non-compete'           : 4, 
+                           'non-solicit'           : 4,
+                           'remuneration'          : 3, 
+                           'indemnity'             : 3, 
+                           'intellectual property' : 4,
+                           'confidential'          : 2, 
+                           'proprietary'           : 2, 
+                           'post-termination'      : 3,
+                           'agrees to'             : 2, 
+                           'shall not'             : 2, 
+                           'agrees and accepts'    : 3,
+                           'subject to'            : 1, 
+                           'in accordance with'    : 2,
                           }
     
     # Anti-patterns (things that indicate NOT a contract)
@@ -77,20 +96,17 @@ class ContractValidator:
     @staticmethod
     def is_valid_contract(text: str, min_length: int = None) -> Tuple[bool, str, str]:
         """
-        Comprehensive contract validation
+        Comprehensive contract validation with relaxed thresholds
         
         Arguments:
         ----------
             text       { str } : Document text to validate
-
+            
             min_length { int } : Minimum length override (optional)
         
         Returns:
         --------
                { tuple }       : (is_valid, validation_type, message) tuple
-                                 - is_valid: Boolean indicating if it's a valid contract
-                                 - validation_type: String like "high_confidence", "not_contract", etc.
-                                 - message: Human-readable explanation
         """
         min_length = min_length or ContractValidator.MIN_CONTRACT_LENGTH
         text_lower = text.lower().strip()
@@ -109,11 +125,11 @@ class ContractValidator:
         for pattern, weight in ContractValidator.ANTI_PATTERNS.items():
             if pattern in text_lower:
                 anti_score += weight
-
                 found_anti_patterns.append(pattern)
         
-        if (anti_score >= 15):
-            return (False, "not_contract", f"This appears to be legal text but NOT a contract. Detected indicators: {', '.join(found_anti_patterns)}. This may be case law, legal opinion, or academic article.")
+        # More strict anti-pattern check
+        if (anti_score >= 10):  # Reduced from 15
+            return (False, "not_contract", f"The provided document does not appear to be a legal contract. Please upload a valid contract for analysis.")
         
         # Positive Indicator Scoring
         score            = 0
@@ -130,50 +146,42 @@ class ContractValidator:
         
         # Signature Block Check
         has_signature_block = ContractValidator._has_signature_block(text = text_lower)
-
         if has_signature_block:
             score += 5
             found_indicators.append("signature block")
         
         # Effective Date Check
         has_effective_date = ContractValidator._has_effective_date(text = text)
-        
         if has_effective_date:
             score += 3
             found_indicators.append("effective date")
         
         # Party Identification Check
         has_parties = ContractValidator._has_party_identification(text = text)
-        
         if has_parties:
             score += 4
             found_indicators.append("party identification")
         
-        # Determine Final Validity
-        if (score >= 25):
-            return (True, "high_confidence", f"Strong contract indicators detected (score: {score}). Found: {', '.join(found_indicators[:5])}. This is highly likely a legal contract.")
+        # Validation Thresholds 
+        if (score >= 50): 
+            return (True, "high_confidence", f"Strong contract indicators detected (score: {score}). This is highly likely a legal contract.")
         
-        elif (score >= 15):
-            return (True, "medium_confidence", f"Moderate contract indicators (score: {score}). Found: {', '.join(found_indicators)}. This appears to be a contract.")
-
-        elif (score >= 10):
-            return (True, "low_confidence", f"Some contract indicators present (score: {score}). Found: {', '.join(found_indicators)}. This might be a contract, but validation is uncertain.")
+        elif (score >= 40):  # Reduced from 15 (now accepts lower confidence)
+            return (True, "medium_confidence", f"Contract indicators present (score: {score}). This appears to be a contract.")
+        
+        elif (score >= 25):  
+            return (True, "low_confidence", f"Some contract indicators present (score: {score}). Proceeding with analysis.")
         
         else:
-            return (False, "not_contract", f"Insufficient contract indicators (score: {score}). This does not appear to be a legal contract. It may be a letter, memo, policy document, or other legal text.")
+            return (False, "not_contract", f"The provided document does not appear to be a legal contract. Please upload a valid contract for analysis.")
     
 
     @staticmethod
     def _check_structural_patterns(text: str) -> int:
         """
         Check for structural patterns unique to contracts
-        
-        Returns:
-        --------
-            { int }     : Score based on structural patterns found
         """
         score    = 0
-        
         patterns = [(r'in\s+consideration\s+of', 3),
                     (r'now,?\s+therefore', 3),
                     (r'agree\s+as\s+follows', 3),
@@ -198,10 +206,6 @@ class ContractValidator:
     def _has_signature_block(text: str) -> bool:
         """
         Check for signature block patterns
-        
-        Returns:
-        --------
-            { bool }    : True if signature block detected
         """
         signature_patterns = [r'signature:?\s*_+',
                               r'signed:?\s*_+',
@@ -220,10 +224,6 @@ class ContractValidator:
     def _has_effective_date(text: str) -> bool:
         """
         Check for effective date patterns
-        
-        Returns:
-        --------
-            { bool }    : True if effective date detected
         """
         date_patterns = [r'effective\s+(?:date|as\s+of)',
                          r'dated\s+as\s+of',
@@ -240,13 +240,9 @@ class ContractValidator:
     def _has_party_identification(text: str) -> bool:
         """
         Check if parties are clearly identified
-        
-        Returns:
-        --------
-            { bool } : True if party identification detected
         """
-        party_patterns = [r'between.*and.*\(.*".*"\)',  # Between X and Y ("Party A")
-                          r'party\s+[a-z]\s*[:\-]',     # Party A:
+        party_patterns = [r'between.*and.*\(.*".*"\)',
+                          r'party\s+[a-z]\s*[:\-]',
                           r'(?:the\s+)?(?:employer|employee|consultant|contractor|client|vendor|landlord|tenant|buyer|seller)',
                           r'hereinafter\s+referred\s+to\s+as',
                           r'\("(?:the\s+)?(?:company|employee|consultant)"\)',
@@ -260,37 +256,23 @@ class ContractValidator:
     def validate_file_integrity(file_path: str) -> Tuple[bool, str]:
         """
         Validate file isn't corrupted and is readable
-        
-        Arguments:
-        ----------
-            file_path { str } : Path to file
-        
-        Returns:
-        --------
-               { tuple }      : (is_valid, message) tuple
         """
         try:
             file_path = Path(file_path)
             
-            # Check file exists
             if not file_path.exists():
                 return False, "File does not exist"
             
-            # Check file size
             file_size = file_path.stat().st_size
             
             if (file_size == 0):
                 return False, "File is empty (0 bytes)"
             
-            # Less than 1KB
             if (file_size < 1024):  
                 return (False, f"File suspiciously small ({file_size} bytes)")
             
-            # Check file is readable
             with open(file_path, 'rb') as f:
                 first_kb = f.read(1024)
-                
-                # Check for null bytes (corruption indicator)
                 if (b'\x00' * 10 in first_kb):
                     return (False, "File appears corrupted (contains null bytes)")
             
@@ -298,7 +280,6 @@ class ContractValidator:
             
         except PermissionError:
             return (False, "Permission denied - cannot read file")
-
         except Exception as e:
             return (False, f"File integrity check failed: {repr(e)}")
     
@@ -307,14 +288,6 @@ class ContractValidator:
     def get_validation_report(text: str) -> Dict[str, any]:
         """
         Get detailed validation report with scores and findings
-        
-        Arguments:
-        ----------
-            text { str } : Document text
-        
-        Returns:
-        --------
-            { dict }     : Detailed validation report dictionary
         """
         is_valid, validation_type, message = ContractValidator.is_valid_contract(text = text)
         

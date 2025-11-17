@@ -1,23 +1,10 @@
-# Model files (too large for GitHub)
-models/embeddings/model.safetensors
-models/legal-bert/model.safetensors
-models/
-
-# Sample data directories (very large)
-data/sample_data/
-basic_streamlit/
-
-# Database files
-*.db
-*.sqlite3
-*.sqlite
-basic_streamlit/legal_market_terms.db
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -31,83 +18,59 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual environments
-env/
 venv/
-.venv/
-.env
+env/
 ENV/
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Jupyter
-.ipynb_checkpoints/
-
 # Logs
-*.log
 logs/
-
-# Cache directories
-.cache/
-cache/
-
-# Streamlit
-.streamlit/
-
-# Temporary files
-*.tmp
-*.temp
-
-# Documentation
-_site/
-.sass-cache/
-.jekyll-cache/
-
-# Coverage reports
-htmlcov/
-.coverage
-.coverage.*
- coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre
-.pyre/
+*.log
 
 # Environment variables
 .env
 .env.local
-.env.production
+.env.dev
+.env.prod
 
-# Large file types that might be generated
+# Model downloads (if stored locally)
+models/
+cache/models/
+
+# Uploaded files (if stored temporarily)
+uploads/
+
+# Cache directories
+.cache/
+__pycache__/
+
+# Reports generated
 *.pdf
-*.docx
-*.zip
-*.tar.gz
+reports/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Environment-specific files
+.envrc
+
+# Special Case
+basic_streamlit/

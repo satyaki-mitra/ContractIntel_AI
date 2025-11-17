@@ -1,570 +1,516 @@
-# services/summary_generator.py
+# DEPENDENCIES
+import sys
+from typing import Any
+from typing import Dict
+from typing import List
+from pathlib import Path
+from typing import Optional
 
-import logging
-from typing import Dict, List, Optional
-from dataclasses import dataclass
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.logger import ContractAnalyzerLogger
-from model_manager.llm_manager import LLMManager, LLMProvider
-
-logger = ContractAnalyzerLogger.get_logger()
-
-@dataclass
-class SummaryContext:
-    """Context data for summary generation"""
-    contract_type: str
-    risk_score: int
-    risk_level: str
-    category_scores: Dict[str, int]
-    unfavorable_terms: List[Dict]
-    missing_protections: List[Dict]
-    clauses: List
-    key_findings: List[str]
+from services.risk_analyzer import RiskScore
+from services.data_models import SummaryContext
+from utils.logger import ContractAnalyzerLogger 
+from model_manager.llm_manager import LLMManager
+from model_manager.llm_manager import LLMProvider
+from services.data_models import ContractCategory
+from services.data_models import RiskInterpretation
+from services.data_models import NegotiationPlaybook
 
 
 class SummaryGenerator:
     """
-    LLM-powered executive summary generator for contract analysis
-    Generates professional, detailed executive summaries like legal professionals
+    LLM-powered executive summary generator for contract analysis : Generates professional, detailed executive summaries using ALL pipeline outputs
     """
-    
     def __init__(self, llm_manager: Optional[LLMManager] = None):
         """
         Initialize the summary generator
         
-        Args:
-            llm_manager: LLM manager instance (if None, creates one with default settings)
+        Arguments:
+        ----------
+            llm_manager { LLMManager } : LLM manager instance (if None, creates one with default settings)
         """
         self.llm_manager = llm_manager or LLMManager()
-        self.logger = ContractAnalyzerLogger.get_logger()
+        self.logger      = ContractAnalyzerLogger.get_logger() 
         
-        # Use proper logging syntax without keyword arguments
-        logger.info("Summary generator initialized")
-    
-    def generate_executive_summary(self, 
-                                 classification: Dict,
-                                 risk_analysis: Dict,
-                                 unfavorable_terms: List[Dict],
-                                 missing_protections: List[Dict],
-                                 clauses: List) -> str:
+        self.logger.info("Summary generator initialized")
+
+
+    # Main entry point with full pipeline integration
+    def generate_executive_summary(self, contract_text: str, classification: ContractCategory, risk_analysis: RiskScore, risk_interpretation: RiskInterpretation,
+                                   negotiation_playbook: NegotiationPlaybook, unfavorable_terms: List, missing_protections: List, clauses: List) -> str:
         """
-        Generate a comprehensive executive summary using LLM
+        Generate executive summary using all the pipeline outputs
         
-        Args:
-            classification: Contract classification data
-            risk_analysis: Risk analysis results
-            unfavorable_terms: List of unfavorable terms
-            missing_protections: List of missing protections
-            clauses: List of analyzed clauses (ExtractedClause objects)
+        Arguments:
+        ----------
+            contract_text               { str }          : Original contract text (for context)
+            
+            classification       { ContractCategory }    : Contract classification results
+            
+            risk_analysis            { RiskScore }       : Complete risk analysis
+            
+            risk_interpretation  { RiskInterpretation }  : LLM-enhanced risk explanations
+            
+            negotiation_playbook { NegotiationPlaybook } : Comprehensive negotiation strategy
+            
+            unfavorable_terms            { List }        : Detected unfavorable terms
+            
+            missing_protections          { List }        : Missing protections
+            
+            clauses                      { List }        : Extracted clauses
             
         Returns:
-            Generated executive summary string
+        --------
+                             { str }                     : Generated executive summary string
         """
         try:
-            # Prepare context for the LLM
-            context = self._prepare_summary_context(
-                classification, risk_analysis, unfavorable_terms, 
-                missing_protections, clauses
-            )
+            # Prepare context with all pipeline data
+            context = self._prepare_summary_context(contract_text        = contract_text,
+                                                    classification       = classification,
+                                                    risk_analysis        = risk_analysis,
+                                                    risk_interpretation  = risk_interpretation,
+                                                    negotiation_playbook = negotiation_playbook,
+                                                    unfavorable_terms    = unfavorable_terms,
+                                                    missing_protections  = missing_protections,
+                                                    clauses              = clauses,
+                                                   )
             
             # Generate summary using LLM
-            summary = self._generate_with_llm(context)
+            summary = self._generate_summary(context = context)
             
-            # Use proper logging syntax
-            logger.info(f"Executive summary generated successfully - Risk score: {context.risk_score}, Risk level: {context.risk_level}")
+            self.logger.info(f"Executive summary generated - Risk: {context.risk_score}/100 ({context.risk_level})") 
             
             return summary
             
         except Exception as e:
-            logger.error(f"Failed to generate executive summary: {e}")
+            self.logger.error(f"Failed to generate comprehensive summary: {repr(e)}") 
             
-            # Create fallback context if preparation failed
-            fallback_context = SummaryContext(
-                contract_type=classification.get("category", "contract"),
-                risk_score=risk_analysis.get("overall_score", 0),
-                risk_level=risk_analysis.get("risk_level", "unknown"),
-                category_scores=risk_analysis.get("category_scores", {}),
-                unfavorable_terms=unfavorable_terms,
-                missing_protections=missing_protections,
-                clauses=clauses,
-                key_findings=[]
-            )
+            # Fallback with available data
+            return self._generate_fallback_summary(contract_text       = contract_text,
+                                                   classification      = classification,
+                                                   risk_analysis       = risk_analysis,
+                                                   unfavorable_terms   = unfavorable_terms,
+                                                   missing_protections = missing_protections,
+                                                  )
+    
+
+    def _prepare_summary_context(self, contract_text: str, classification: ContractCategory, risk_analysis: RiskScore, risk_interpretation: RiskInterpretation,
+                                 negotiation_playbook: NegotiationPlaybook, unfavorable_terms: List[Dict], missing_protections: List[Dict], clauses: List) -> SummaryContext:
+        """
+        Prepare summary context with all pipeline data
+        """
+        # Handle null negotiation_playbook
+        walk_away_count = 0
+
+        if negotiation_playbook and hasattr(negotiation_playbook, 'walk_away_items'):
+            walk_away_count = len(negotiation_playbook.walk_away_items)
             
-            # Fallback to simple summary
-            return self._generate_fallback_summary(fallback_context)
+        # Extract contract text
+        contract_preview = contract_text 
+        
+        # Extract key findings from all sources
+        key_findings     = self._extract_findings(risk_analysis        = risk_analysis,
+                                                  risk_interpretation  = risk_interpretation,
+                                                  negotiation_playbook = negotiation_playbook,
+                                                  unfavorable_terms    = unfavorable_terms,
+                                                  missing_protections  = missing_protections,
+                                                  clauses              = clauses,
+                                                 )
+                                                            
+        # Prepare metadata
+        metadata         = {"contract_length"  : len(contract_text),
+                            "clauses_analyzed" : len(clauses),
+                            "critical_issues"  : len([t for t in unfavorable_terms if (self._get_severity(t) == "critical")]),
+                            "walk_away_items"  : walk_away_count,
+                           }
+         
+        return SummaryContext(contract_type         = classification.category,
+                              risk_score            = risk_analysis.overall_score,
+                              risk_level            = risk_analysis.risk_level,
+                              category_scores       = risk_analysis.category_scores,
+                              unfavorable_terms     = unfavorable_terms,
+                              missing_protections   = missing_protections,
+                              clauses               = clauses,
+                              key_findings          = key_findings,
+                              risk_interpretation   = risk_interpretation,
+                              negotiation_playbook  = negotiation_playbook,
+                              contract_text_preview = contract_preview,
+                              contract_metadata     = metadata,
+                             )
+
     
-    def _prepare_summary_context(self,
-                               classification: Dict,
-                               risk_analysis: Dict,
-                               unfavorable_terms: List[Dict],
-                               missing_protections: List[Dict],
-                               clauses: List) -> SummaryContext:
-        """Prepare structured context for summary generation"""
-        
-        contract_type = classification.get("category", "contract")
-        risk_score = risk_analysis.get("overall_score", 0)
-        risk_level = risk_analysis.get("risk_level", "unknown")
-        category_scores = risk_analysis.get("category_scores", {})
-        
-        # Extract key findings
-        key_findings = self._extract_key_findings(
-            unfavorable_terms, missing_protections, clauses, risk_score
-        )
-        
-        return SummaryContext(
-            contract_type=contract_type,
-            risk_score=risk_score,
-            risk_level=risk_level,
-            category_scores=category_scores,
-            unfavorable_terms=unfavorable_terms,
-            missing_protections=missing_protections,
-            clauses=clauses,
-            key_findings=key_findings
-        )
-    
-    def _extract_key_findings(self,
-                            unfavorable_terms: List[Dict],
-                            missing_protections: List[Dict],
-                            clauses: List,
-                            risk_score: int) -> List[str]:
-        """Extract the most important findings for the summary"""
-        
-        findings = []
-        
-        # High-risk clauses - handle both dict and object clauses
-        high_risk_clauses = []
-        for clause in clauses:
-            try:
-                # Try to access as object first, then as dict
-                if hasattr(clause, 'confidence'):
-                    confidence = clause.confidence
-                    risk_level = getattr(clause, 'risk_level', None)
-                    category = getattr(clause, 'category', 'clause')
-                    text = getattr(clause, 'text', '')
-                else:
-                    # Fallback to dict access
-                    confidence = clause.get('confidence', 0)
-                    risk_level = clause.get('risk_level')
-                    category = clause.get('category', 'clause')
-                    text = clause.get('text', '')
-                
-                if confidence > 0.7 and risk_level in ['high', 'critical']:
-                    high_risk_clauses.append({
-                        'category': category,
-                        'text': text,
-                        'confidence': confidence,
-                        'risk_level': risk_level
-                    })
-            except (AttributeError, KeyError, TypeError):
-                # Skip clauses that can't be processed
-                continue
-        
-        for clause in high_risk_clauses[:3]:  # Top 3 high-risk clauses
-            clause_text = clause['text'][:100] + '...' if len(clause['text']) > 100 else clause['text']
-            findings.append(f"High-risk {clause['category']}: {clause_text}")
-        
-        # Critical unfavorable terms
-        critical_terms = []
-        for term in unfavorable_terms:
-            try:
-                if hasattr(term, 'severity'):
-                    severity = term.severity
-                    term_name = getattr(term, 'term', 'Unknown')
-                    explanation = getattr(term, 'explanation', '')
-                else:
-                    severity = term.get('severity')
-                    term_name = term.get('term', 'Unknown')
-                    explanation = term.get('explanation', '')
-                
-                if severity == 'critical':
-                    critical_terms.append({
-                        'term': term_name,
-                        'explanation': explanation
-                    })
-            except (AttributeError, KeyError, TypeError):
-                continue
-        
-        for term in critical_terms[:2]:
-            findings.append(f"Critical term: {term['term']} - {term['explanation']}")
-        
-        # Important missing protections
-        critical_protections = []
-        for prot in missing_protections:
-            try:
-                if hasattr(prot, 'importance'):
-                    importance = prot.importance
-                    protection_name = getattr(prot, 'protection', 'Unknown')
-                    explanation = getattr(prot, 'explanation', '')
-                else:
-                    importance = prot.get('importance')
-                    protection_name = prot.get('protection', 'Unknown')
-                    explanation = prot.get('explanation', '')
-                
-                if importance == 'critical':
-                    critical_protections.append({
-                        'protection': protection_name,
-                        'explanation': explanation
-                    })
-            except (AttributeError, KeyError, TypeError):
-                continue
-        
-        for prot in critical_protections[:2]:
-            findings.append(f"Missing protection: {prot['protection']}")
+    def _extract_findings(self, risk_analysis: RiskScore, risk_interpretation: RiskInterpretation, negotiation_playbook: NegotiationPlaybook,
+                          unfavorable_terms: List[Dict], missing_protections: List[Dict], clauses: List) -> List[str]:
+        """
+        Extract findings from all analysis components
+        """
+        findings = list()
         
         # Overall risk context
-        if risk_score >= 80:
-            findings.append("Contract presents critical level of risk requiring immediate attention")
-        elif risk_score >= 60:
-            findings.append("Significant concerns identified requiring careful review")
+        if (risk_analysis.overall_score >= 80):
+            findings.append("CRITICAL RISK LEVEL: Contract presents unacceptable risk requiring immediate attention")
+
+        elif (risk_analysis.overall_score >= 60):
+            findings.append("HIGH RISK LEVEL: Significant concerns requiring substantial negotiation")
         
-        return findings
+        # Critical unfavorable terms
+        critical_terms = [t for t in unfavorable_terms if (self._get_severity(t) == "critical")]
+        
+        if critical_terms:
+            findings.append(f"{len(critical_terms)} CRITICAL unfavorable terms identified")
+            for term in critical_terms[:2]:
+                term_name = self._get_term_name(term = term)
+                
+                findings.append(f"Critical: {term_name}")
+        
+        # Critical missing protections
+        critical_protections = [p for p in missing_protections if (self._get_importance(p) == "critical")]
+        
+        if critical_protections:
+            findings.append(f"{len(critical_protections)} CRITICAL protections missing")
+            for prot in critical_protections[:2]:
+                prot_name = self._get_protection_name(protection = prot)
+                
+                findings.append(f"Missing: {prot_name}")
+        
+        # High-risk categories
+        high_risk_categories = [cat for cat, score in risk_analysis.category_scores.items() if (score >= 70)]
+        if high_risk_categories:
+            findings.append(f"High-risk categories: {', '.join(high_risk_categories)}")
+        
+        # Walk-away items from negotiation playbook
+        if negotiation_playbook and negotiation_playbook.walk_away_items:
+            findings.append(f"{len(negotiation_playbook.walk_away_items)} potential deal-breakers identified")
+        
+        # Key concerns from risk interpretation
+        if risk_interpretation and risk_interpretation.key_concerns:
+            top_concerns = risk_interpretation.key_concerns[:2]
+            for concern in top_concerns:
+                findings.append(f"Key concern: {concern}")
+        
+        return findings  
     
-    def _generate_with_llm(self, context: SummaryContext) -> str:
-        """Generate summary using LLM"""
-        
-        prompt = self._build_summary_prompt(context)
+
+    def _generate_summary(self, context: SummaryContext) -> str:
+        """
+        Generate enhanced summary using comprehensive context
+        """
+        prompt        = self._build_summary_prompt(context)
         system_prompt = self._build_system_prompt()
         
         try:
-            response = self.llm_manager.complete(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=0.3,  # Lower temperature for more consistent, professional output
-                max_tokens=800,   # Limit summary length
-                json_mode=False
-            )
-            
+            response = self.llm_manager.complete(prompt        = prompt,
+                                                 system_prompt = system_prompt,
+                                                 temperature   = 0.3,
+                                                 max_tokens    = 300, 
+                                                 json_mode     = False,
+                                                )
+              
             if response.success and response.text.strip():
-                return self._clean_summary_response(response.text)
+                return self._clean_summary_response(text = response.text)
+            
             else:
                 raise ValueError(f"LLM generation failed: {response.error_message}")
                 
         except Exception as e:
-            logger.error(f"LLM summary generation failed: {e}")
-            raise
+            self.logger.error(f"Enhanced LLM summary generation failed: {e}")
+            # Fallback to basic summary
+            return self._generate_fallback_summary_from_context(context = context)
     
+
     def _build_system_prompt(self) -> str:
-        """Build system prompt for professional summary generation"""
+        """
+        Build system prompt for executive summary generation
+        """
+        system_prompt =  """
+                            You are a senior contract risk analyst. Generate CONCISE executive summaries.
+
+                            CRITICAL REQUIREMENTS:
+                            1. Maximum 120 words (strict limit)
+                            2. Must mention SPECIFIC clause numbers (e.g., Clause 8.2, Clause 9.5)
+                            3. Direct, urgent tone - no hedging or academic language
+                            4. Focus ONLY on top 3 critical risks
+
+                            STRUCTURE (3-4 sentences total):
+                            Sentence 1: Overall risk assessment with contract type
+                            Sentence 2-3: Top 2-3 critical risks with SPECIFIC clause references
+                            Sentence 4: Brief actionable conclusion
+
+                            TONE EXAMPLES:
+                            ✅ GOOD: "This employment agreement is heavily skewed in favor of the Employer. Clause 8.2 fails to define post-probation salary. Clause 11.2 allows illegal wage forfeiture."
+                            ❌ BAD: "The comprehensive analysis indicates that there are several concerns that require attention. It is essential to carefully review..."
+
+                            FORBIDDEN PHRASES:
+                            - "comprehensive analysis"
+                            - "it is essential to"
+                            - "requires attention"
+                            - "should be reviewed"
+                            - "it is recommended"
+
+                            OUTPUT: Pure paragraph text only. No formatting, no bullets, no headers.
+                         """
         
-        return """You are a senior legal analyst specializing in contract risk assessment. Your task is to generate concise, professional executive summaries that:
+        return system_prompt
 
-KEY REQUIREMENTS:
-1. Write in formal, professional business language
-2. Focus on the most critical risks and implications
-3. Be specific about contractual provisions and their impact
-4. Maintain objective, factual tone
-5. Keep summary length between 100-200 words
-6. Structure: Start with overall risk assessment, then key findings, then implications
-
-WRITING STYLE:
-- Use precise legal/business terminology
-- Avoid markdown formatting
-- Be direct and actionable
-- Highlight asymmetrical terms and missing protections
-- Focus on practical consequences for the signing party
-
-OUTPUT FORMAT:
-Return only the executive summary text, no headings, no bullet points, just clean paragraph text."""
 
     def _build_summary_prompt(self, context: SummaryContext) -> str:
-        """Build detailed prompt for summary generation"""
+        """
+        Build prompt for executive summary generation
+        """
+        # Extract top critical issues only
+        critical_terms       = [t for t in context.unfavorable_terms if self._get_severity(t) == "critical"][:10]
         
-        # Build risk context
-        risk_context = self._build_risk_context(context)
+        critical_protections = [p for p in context.missing_protections if self._get_importance(p) == "critical"][:10]
         
-        # Build key provisions section
-        key_provisions = self._build_key_provisions_context(context)
-        
-        # Build missing protections section
-        missing_protections_text = self._build_missing_protections_context(context)
-        
-        prompt = f"""
-CONTRACT ANALYSIS DATA:
-
-{risk_context}
-
-{key_provisions}
-
-{missing_protections_text}
-
-GENERATION INSTRUCTIONS:
-Based on the analysis above, write a professional executive summary that:
-1. Starts with the overall risk assessment for the {context.contract_type}
-2. Highlights the 2-3 most critical issues
-3. Explains the practical implications for the signing party
-4. Mentions any severely imbalanced or punitive clauses
-5. Notes significant missing protections
-
-Focus on clarity, specificity, and actionable insights.
-"""
-        return prompt
-    
-    def _build_risk_context(self, context: SummaryContext) -> str:
-        """Build risk assessment context"""
-        
-        risk_level_descriptions = {
-            "critical": "CRITICAL level of risk requiring immediate attention",
-            "high": "HIGH level of risk requiring significant review",
-            "medium": "MODERATE level of risk with some concerns",
-            "low": "LOW level of risk, generally favorable"
-        }
-        
-        risk_desc = risk_level_descriptions.get(context.risk_level.lower(), "UNKNOWN level of risk")
-        
-        text = f"RISK ASSESSMENT:\n"
-        text += f"- Overall Score: {context.risk_score}/100 ({risk_desc})\n"
-        text += f"- Contract Type: {context.contract_type.replace('_', ' ').title()}\n"
-        
-        # Add category scores
-        if context.category_scores:
-            text += "- Risk by Category:\n"
-            for category, score in context.category_scores.items():
-                category_name = category.replace('_', ' ').title()
-                text += f"  * {category_name}: {score}/100\n"
-        
-        return text
-    
-    def _build_key_provisions_context(self, context: SummaryContext) -> str:
-        """Build context about key provisions and unfavorable terms"""
-        
-        text = "KEY PROVISIONS & UNFAVORABLE TERMS:\n"
-        
-        # Critical terms first
-        critical_terms = []
-        for term in context.unfavorable_terms:
-            try:
-                if hasattr(term, 'severity'):
-                    severity = term.severity
-                else:
-                    severity = term.get('severity')
-                
-                if severity == 'critical':
-                    critical_terms.append(term)
-            except (AttributeError, KeyError):
-                continue
-        
-        high_terms = []
-        for term in context.unfavorable_terms:
-            try:
-                if hasattr(term, 'severity'):
-                    severity = term.severity
-                else:
-                    severity = term.get('severity')
-                
-                if severity == 'high':
-                    high_terms.append(term)
-            except (AttributeError, KeyError):
-                continue
+        # Build concise context
+        critical_issues_text = ""
         
         if critical_terms:
-            text += f"- Critical Issues Found: {len(critical_terms)}\n"
-            for term in critical_terms[:3]:
-                try:
-                    if hasattr(term, 'term'):
-                        term_name = term.term
-                        explanation = getattr(term, 'explanation', '')
-                    else:
-                        term_name = term.get('term', 'Unknown')
-                        explanation = term.get('explanation', '')
-                    text += f"  * {term_name}: {explanation}\n"
-                except (AttributeError, KeyError):
-                    continue
-        
-        if high_terms:
-            text += f"- Significant Concerns: {len(high_terms)}\n"
-            for term in high_terms[:2]:
-                try:
-                    if hasattr(term, 'term'):
-                        term_name = term.term
-                        explanation = getattr(term, 'explanation', '')
-                    else:
-                        term_name = term.get('term', 'Unknown')
-                        explanation = term.get('explanation', '')
-                    text += f"  * {term_name}: {explanation}\n"
-                except (AttributeError, KeyError):
-                    continue
-        
-        # High-risk clauses
-        high_risk_clauses = []
-        for clause in context.clauses:
-            try:
-                if hasattr(clause, 'confidence'):
-                    confidence = clause.confidence
-                    risk_level = getattr(clause, 'risk_level', None)
-                else:
-                    confidence = clause.get('confidence', 0)
-                    risk_level = clause.get('risk_level')
-                
-                if confidence > 0.7 and risk_level in ['high', 'critical']:
-                    high_risk_clauses.append(clause)
-            except (AttributeError, KeyError, TypeError):
-                continue
-        
-        if high_risk_clauses:
-            text += f"- High-Risk Clauses Identified: {len(high_risk_clauses)}\n"
-            for clause in high_risk_clauses[:2]:
-                try:
-                    if hasattr(clause, 'category'):
-                        category = clause.category
-                        clause_text = getattr(clause, 'text', '')
-                    else:
-                        category = clause.get('category', 'Unknown')
-                        clause_text = clause.get('text', '')
-                    
-                    display_text = clause_text[:80] + '...' if len(clause_text) > 80 else clause_text
-                    text += f"  * {category}: {display_text}\n"
-                except (AttributeError, KeyError):
-                    continue
-        
-        return text
-    
-    def _build_missing_protections_context(self, context: SummaryContext) -> str:
-        """Build context about missing protections"""
-        
-        text = "MISSING PROTECTIONS:\n"
-        
-        critical_protections = []
-        for prot in context.missing_protections:
-            try:
-                if hasattr(prot, 'importance'):
-                    importance = prot.importance
-                else:
-                    importance = prot.get('importance')
-                
-                if importance == 'critical':
-                    critical_protections.append(prot)
-            except (AttributeError, KeyError):
-                continue
-        
-        important_protections = []
-        for prot in context.missing_protections:
-            try:
-                if hasattr(prot, 'importance'):
-                    importance = prot.importance
-                else:
-                    importance = prot.get('importance')
-                
-                if importance == 'high':
-                    important_protections.append(prot)
-            except (AttributeError, KeyError):
-                continue
+            critical_issues_text += "CRITICAL UNFAVORABLE TERMS:\n"
+            
+            for term in critical_terms:
+                clause_reference      = self._get_clause_reference(term = term)
+                term_name             = self._get_term_name(term = term)
+                critical_issues_text += f"- {clause_reference}: {term_name}\n"
         
         if critical_protections:
-            text += f"- Critical Protections Missing: {len(critical_protections)}\n"
-            for prot in critical_protections[:3]:
-                try:
-                    if hasattr(prot, 'protection'):
-                        protection_name = prot.protection
-                        explanation = getattr(prot, 'explanation', '')
-                    else:
-                        protection_name = prot.get('protection', 'Unknown')
-                        explanation = prot.get('explanation', '')
-                    text += f"  * {protection_name}: {explanation}\n"
-                except (AttributeError, KeyError):
-                    continue
+            critical_issues_text += "\nCRITICAL MISSING PROTECTIONS:\n"
+            
+            for protection in critical_protections:
+                protection_name       = self._get_protection_name(protection = protection)
+                critical_issues_text += f"- {protection_name}\n"
         
-        if important_protections:
-            text += f"- Important Protections Missing: {len(important_protections)}\n"
-            for prot in important_protections[:2]:
-                try:
-                    if hasattr(prot, 'protection'):
-                        protection_name = prot.protection
-                        explanation = getattr(prot, 'explanation', '')
-                    else:
-                        protection_name = prot.get('protection', 'Unknown')
-                        explanation = prot.get('explanation', '')
-                    text += f"  * {protection_name}: {explanation}\n"
-                except (AttributeError, KeyError):
-                    continue
+        # Determine risk tone
+        if (context.risk_score >= 80):
+            risk_tone = "heavily skewed/very high risk/presents unacceptable risk"
         
-        if not critical_protections and not important_protections:
-            text += "- No critical protections missing\n"
+        elif (context.risk_score >= 60):
+            risk_tone = "significantly unfavorable/high risk/substantial concerns"
+
+        elif (context.risk_score >= 40):
+            risk_tone = "moderately concerning/notable risk/requires negotiation"
+
+        else:
+            risk_tone = "generally reasonable/manageable risk/standard concerns"
         
-        return text
+        summary_prompt = f"""
+                             CONTRACT ANALYSIS DATA:
+                            
+                             - Type: {context.contract_type.replace('_', ' ').title()}
+                             - Risk Score: {context.risk_score}/100
+                             - Risk Level: {context.risk_level}
+                             - Appropriate Tone: {risk_tone}
+
+                             {critical_issues_text}
+
+                             TASK:
+                             Write a 100-120 word executive summary following this EXACT structure:
+
+                             1. First sentence: "This [contract type] [risk assessment with tone matching score]"
+                             2. Second sentence: State top critical risk with SPECIFIC clause number
+                             3. Third sentence: State second critical risk with SPECIFIC clause number
+                             4. Fourth sentence: Brief conclusion about action needed
+
+                             EXAMPLE (for 85/100 risk employment contract):
+                             "This employment agreement is heavily skewed in favor of the Employer, presenting a very high risk to the Employee. Key concerns include Clause 9.5's extremely broad 24-month non-compete against the entire industry, and Clause 11.2's punitive penalty allowing forfeiture of earned wages. The termination clauses in Clause 17 are highly asymmetrical, giving the employer unilateral power. Significant negotiation is required before signing."
+
+                             YOUR TURN - Generate summary for THIS contract:
+                          """
+                        
+        return summary_prompt
     
+
     def _clean_summary_response(self, text: str) -> str:
-        """Clean and format the LLM response"""
-        
+        """
+        Clean and format the LLM response
+        """
         # Remove any markdown formatting
-        text = text.replace('**', '').replace('*', '').replace('#', '')
+        text          = text.replace('**', '').replace('*', '').replace('#', '')
         
-        # Remove common LLM artifacts
-        lines = text.split('\n')
-        cleaned_lines = []
+        # Remove common LLM artifacts and empty lines
+        lines         = text.split('\n')
+        cleaned_lines = list()
         
         for line in lines:
             line = line.strip()
-            if line and not line.lower().startswith(('executive summary', 'summary:', 'here is', 'based on')):
+            if line and not line.lower().startswith(('executive summary', 'summary:', 'here is', 'based on', 'certainly')):
                 cleaned_lines.append(line)
         
         # Join into coherent paragraph
         summary = ' '.join(cleaned_lines)
         
         # Ensure proper sentence structure
-        if summary and not summary[0].isupper():
-            summary = summary[0].upper() + summary[1:]
-        
-        if summary and not summary.endswith(('.', '!', '?')):
-            summary += '.'
+        if summary:
+            if not summary[0].isupper():
+                summary = summary[0].upper() + summary[1:]
+            
+            if not summary.endswith(('.', '!', '?')):
+                summary += '.'
         
         return summary
     
-    def _generate_fallback_summary(self, context: SummaryContext) -> str:
-        """Generate a fallback summary when LLM is not available"""
-        
-        contract_type_display = context.contract_type.replace('_', ' ').title()
+
+    def _generate_fallback_summary(self, contract_text: str, classification: ContractCategory, risk_analysis: RiskScore, unfavorable_terms: List[Dict], missing_protections: List[Dict]) -> str:
+        """
+        Generate enhanced fallback summary
+        """
+        contract_type_display = classification.category.replace('_', ' ').title()
         
         # Count critical items
-        critical_terms = 0
-        for term in context.unfavorable_terms:
-            try:
-                if hasattr(term, 'severity'):
-                    if term.severity == 'critical':
-                        critical_terms += 1
-                else:
-                    if term.get('severity') == 'critical':
-                        critical_terms += 1
-            except (AttributeError, KeyError):
-                continue
+        critical_terms        = len([t for t in unfavorable_terms if (self._get_severity(t) == "critical")])
+        critical_protections  = len([p for p in missing_protections if (self._get_importance(p) == "critical")])
         
-        critical_protections = 0
-        for prot in context.missing_protections:
-            try:
-                if hasattr(prot, 'importance'):
-                    if prot.importance == 'critical':
-                        critical_protections += 1
-                else:
-                    if prot.get('importance') == 'critical':
-                        critical_protections += 1
-            except (AttributeError, KeyError):
-                continue
-        
-        if context.risk_score >= 80:
+        # Risk assessment
+        if (risk_analysis.overall_score >= 80):
             risk_assessment = f"This {contract_type_display} presents a CRITICAL level of risk"
-            action = "requires immediate attention and significant revision"
-        elif context.risk_score >= 60:
-            risk_assessment = f"This {contract_type_display} presents a HIGH level of risk"
-            action = "requires careful review and substantial negotiation"
-        elif context.risk_score >= 40:
+            action          = "requires immediate executive attention and significant revision before consideration"
+        
+        elif (risk_analysis.overall_score >= 60):
+            risk_assessment = f"This {contract_type_display} presents a HIGH level of risk" 
+            action          = "requires careful legal review and substantial negotiation to mitigate key concerns"
+        
+        elif (risk_analysis.overall_score >= 40):
             risk_assessment = f"This {contract_type_display} presents a MODERATE level of risk"
-            action = "requires review and selective negotiation"
+            action          = "requires professional review and selective negotiation on specific provisions"
+        
         else:
             risk_assessment = f"This {contract_type_display} presents a LOW level of risk"
-            action = "appears generally reasonable but should be reviewed"
+            action = "appears generally reasonable but should undergo standard legal review"
         
-        summary = f"{risk_assessment} with a score of {context.risk_score}/100. "
+        summary  = f"{risk_assessment} with an overall risk score of {risk_analysis.overall_score}/100. "
         summary += f"The agreement {action}. "
         
-        if critical_terms > 0:
-            summary += f"Found {critical_terms} critical unfavorable terms and "
+        # Add critical items context
+        if (critical_terms > 0):
+            summary += f"Analysis identified {critical_terms} critical unfavorable terms "
+
+            if critical_protections > 0:
+                summary += f"and {critical_protections} critical missing protections. "
+
+            else:
+                summary += f"and {len(missing_protections)} missing standard protections. "
+
         else:
-            summary += f"Found {len(context.unfavorable_terms)} unfavorable terms and "
+            summary += f"Review identified {len(unfavorable_terms)} areas for improvement. "
         
-        if critical_protections > 0:
-            summary += f"{critical_protections} critical missing protections. "
-        else:
-            summary += f"{len(context.missing_protections)} missing protections. "
+        # Add high-risk categories context
+        high_risk_categories = [cat for cat, score in risk_analysis.category_scores.items() if (score >= 60)]
         
-        summary += "Review the detailed analysis below for specific clauses and recommendations."
+        if high_risk_categories:
+            category_names = [cat.replace('_', ' ').title() for cat in high_risk_categories[:2]]
+            summary       += f"Particular attention should be given to {', '.join(category_names)} provisions. "
+        
+        summary += "Proceed with the detailed negotiation strategy and risk mitigation recommendations provided in the full analysis."
         
         return summary
+
+    
+    def _generate_fallback_summary_from_context(self, context: SummaryContext) -> str:
+        """
+        Generate fallback summary from context object
+        """
+        # Access attributes safely, providing defaults if needed by the fallback logic
+        text_preview  = context.contract_text_preview if context.contract_text_preview is not None else ""
+        missing_prots = context.missing_protections if context.missing_protections is not None else []
+        unfav_terms   = context.unfavorable_terms if context.unfavorable_terms is not None else []
+
+        return self._generate_fallback_summary(contract_text       = text_preview,
+                                               classification      = type('MockClassification', (), {'category': context.contract_type})(),
+                                               risk_analysis       = type('MockRiskAnalysis', (), {'overall_score': context.risk_score, 'risk_level': context.risk_level, 'category_scores': context.category_scores or {}})(),
+                                               unfavorable_terms   = unfav_terms,
+                                               missing_protections = missing_prots,
+                                              )
+    
+
+    def _get_severity(self, term) -> str:
+        """
+        Safely get severity from term object or dict
+        """
+        try:
+            if (hasattr(term, 'severity')):
+                return term.severity
+            
+            else:
+                return term.get('severity', 'unknown')
+        
+        except (AttributeError, KeyError):
+            return 'unknown'
+    
+
+    def _get_importance(self, protection) -> str:
+        """
+        Safely get importance from protection object or dict
+        """
+        try:
+            if hasattr(protection, 'importance'):
+                return protection.importance
+
+            else:
+                return protection.get('importance', 'unknown')
+        
+        except (AttributeError, KeyError):
+            return 'unknown'
+    
+
+    def _get_term_name(self, term) -> str:
+        """
+        Safely get term name
+        """
+        try:
+            if hasattr(term, 'term'):
+                return term.term
+
+            else:
+                return term.get('term', 'Unknown Term')
+
+        except (AttributeError, KeyError):
+            return 'Unknown Term'
+    
+
+    def _get_protection_name(self, protection) -> str:
+        """
+        Safely get protection name
+        """
+        try:
+            if hasattr(protection, 'protection'):
+                return protection.protection
+            
+            else:
+                return protection.get('protection', 'Unknown Protection')
+        
+        except (AttributeError, KeyError):
+            return 'Unknown Protection'
+    
+
+    def _get_explanation(self, item) -> str:
+        """
+        Safely get explanation
+        """
+        try:
+            if hasattr(item, 'explanation'):
+                return item.explanation
+            
+            else:
+                return item.get('explanation', 'No explanation available')
+        
+        except (AttributeError, KeyError):
+            return 'No explanation available'
+
+
+    def _get_clause_reference(self, term) -> str:
+        """
+        Safely get clause reference from term
+        """
+        try:
+            if hasattr(term, 'clause_reference'):
+                ref = term.clause_reference
+                return ref if ref and ref != 'None' else 'Multiple clauses'
+
+            else:
+                ref = term.get('clause_reference', '')
+                return ref if ref and ref != 'None' else 'Multiple clauses'
+
+        except (AttributeError, KeyError):
+            return 'Unknown clause'

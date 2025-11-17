@@ -12,23 +12,26 @@ class ModelConfig:
     
     # Model Architecture Settings
     LEGAL_BERT        = {"model_name"      : "nlpaueb/legal-bert-base-uncased",
-                         "local_path"      : MODEL_DIR / "legal-bert",
+                         "local_path"      : MODEL_DIR / "nlpaueb" / "legal-bert-base-uncased",
                          "task"            : "clause-extraction",
                          "max_length"      : 512,
                          "batch_size"      : 16,
                          "hidden_dim"      : 768,
                          "num_layers"      : 12,
                          "attention_heads" : 12,
+                         "force_download"  : False, 
                         }
     
-    # Embedding Model Settings
+    # Embedding Model Settings  
     EMBEDDING_MODEL   = {"model_name"           : "sentence-transformers/all-MiniLM-L6-v2",
-                         "local_path"           : MODEL_DIR / "embeddings",
+                         "local_path"           : MODEL_DIR / "sentence-transformers" / "all-MiniLM-L6-v2",
                          "dimension"            : 384,
                          "pooling"              : "mean",
                          "normalize"            : True,
                          "similarity_threshold" : 0.7,
+                         "force_download"       : True,  
                         }
+
     
     # Classification Model Settings
     CLASSIFIER_MODEL  = {"embedding_dim"    : 384,
@@ -88,8 +91,8 @@ class ModelConfig:
         """
         directories = [cls.MODEL_DIR,
                        cls.CACHE_DIR,
-                       cls.MODEL_DIR / "legal-bert",
-                       cls.MODEL_DIR / "embeddings",
+                       cls.MODEL_DIR / "nlpaueb" / "legal-bert-base-uncased",
+                       cls.MODEL_DIR / "sentence-transformers" / "all-MiniLM-L6-v2",
                       ]
                     
         for directory in directories:

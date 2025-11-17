@@ -81,7 +81,7 @@ class LLMManager:
     Unified LLM manager for multiple providers : handles Ollama (local), OpenAI API, and Anthropic API
     """
     def __init__(self, default_provider: LLMProvider = LLMProvider.OLLAMA, ollama_base_url: Optional[str] = None,
-             openai_api_key: Optional[str] = None, anthropic_api_key: Optional[str] = None):
+                 openai_api_key: Optional[str] = None, anthropic_api_key: Optional[str] = None):
         """
         Initialize LLM Manager
         
@@ -89,42 +89,32 @@ class LLMManager:
         ----------
             default_provider  : Default LLM provider to use
             
-            ollama_base_url   : Ollama server URL (default: http://localhost:11434)
+            ollama_base_url   : Ollama server URL (default: from settings)
             
             openai_api_key    : OpenAI API key (or set OPENAI_API_KEY env var)
             
             anthropic_api_key : Anthropic API key (or set ANTHROPIC_API_KEY env var)
         """
-        self.default_provider  = default_provider
-        self.logger            = ContractAnalyzerLogger.get_logger()
+        self.default_provider   = default_provider
+        self.logger             = ContractAnalyzerLogger.get_logger()
         
-        # Configuration
-        self.config            = ModelConfig()
+        # Configuration Variables Initialization
+        self.config             = ModelConfig()
         
-        # Ollama configuration
-        self.ollama_base_url   = ollama_base_url or "http://localhost:11434"  # Default Ollama URL
-        self.ollama_model      = "mistral:7b"  # Default model
-        self.ollama_timeout    = 300           # Default timeout
+        # Ollama configuration 
+        self.ollama_base_url    = ollama_base_url or settings.OLLAMA_BASE_URL
+        self.ollama_model       = settings.OLLAMA_MODEL
+        self.ollama_timeout     = settings.OLLAMA_TIMEOUT
+        self.ollama_temperature = settings.OLLAMA_TEMPERATURE
         
-        # Get settings from environment or use defaults
-        try:
-            
-            self.ollama_base_url = ollama_base_url or settings.OLLAMA_BASE_URL
-            self.ollama_model    = settings.OLLAMA_MODEL
-            self.ollama_timeout = settings.OLLAMA_TIMEOUT
-        
-        except ImportError:
-            # Fallback to defaults if settings not available
-            pass
-        
-        # OpenAI configuration
-        self.openai_api_key    = openai_api_key
+        # OpenAI configuration 
+        self.openai_api_key     = openai_api_key or settings.OPENAI_API_KEY
         
         if (OPENAI_AVAILABLE and self.openai_api_key):
             openai.api_key = self.openai_api_key
         
-        # Anthropic configuration
-        self.anthropic_api_key = anthropic_api_key
+        # Anthropic configuration  
+        self.anthropic_api_key = anthropic_api_key or settings.ANTHROPIC_API_KEY
 
         if (ANTHROPIC_AVAILABLE and self.anthropic_api_key):
             self.anthropic_client = anthropic.Anthropic(api_key = self.anthropic_api_key)
@@ -133,21 +123,27 @@ class LLMManager:
             self.anthropic_client = None
         
         # Rate limiting (simple token bucket)
-        self._rate_limit_tokens      = 10
+        self._rate_limit_tokens      = settings.RATE_LIMIT_REQUESTS
         self._rate_limit_last_refill = time.time()
-
-        # Tokens per second
-        self._rate_limit_refill_rate = 1.0  
+        self._rate_limit_refill_rate = settings.RATE_LIMIT_REQUESTS / settings.RATE_LIMIT_PERIOD
+        
+        # Generation settings 
+        self.generation_config = self.config.LLM_GENERATION
         
         log_info("LLMManager initialized",
                  default_provider    = default_provider.value,
-                 ollama_available    = self._check_ollama_available(),
+                 ollama_base_url     = self.ollama_base_url,
+                 ollama_model        = self.ollama_model,
+                 ollama_timeout      = self.ollama_timeout,
+                 ollama_temperature  = self.ollama_temperature,
                  openai_available    = OPENAI_AVAILABLE and bool(self.openai_api_key),
                  anthropic_available = ANTHROPIC_AVAILABLE and bool(self.anthropic_api_key),
+                 rate_limit_requests = settings.RATE_LIMIT_REQUESTS,
+                 rate_limit_period   = settings.RATE_LIMIT_PERIOD,
                 )
-        
 
-    # PROVIDER AVAILABILITY CHECKS
+
+    # Provider Availability Check
     def _check_ollama_available(self) -> bool:
         """
         Check if Ollama server is available
@@ -173,13 +169,13 @@ class LLMManager:
         """
         available = list()
         
-        if (self._check_ollama_available()):
+        if self._check_ollama_available():
             available.append(LLMProvider.OLLAMA)
         
-        if (OPENAI_AVAILABLE and self.openai_api_key):
+        if OPENAI_AVAILABLE and self.openai_api_key:
             available.append(LLMProvider.OPENAI)
         
-        if (ANTHROPIC_AVAILABLE and self.anthropic_api_key):
+        if ANTHROPIC_AVAILABLE and self.anthropic_api_key:
             available.append(LLMProvider.ANTHROPIC)
         
         log_info("Available LLM providers", providers = [p.value for p in available])
@@ -187,7 +183,7 @@ class LLMManager:
         return available
     
 
-    # RATE LIMITING
+    # Rate Limiting
     def _check_rate_limit(self) -> bool:
         """
         Check if rate limit allows request (simple token bucket)
@@ -196,7 +192,7 @@ class LLMManager:
         time_passed = now - self._rate_limit_last_refill
         
         # Refill tokens
-        self._rate_limit_tokens      = min(10, self._rate_limit_tokens + time_passed * self._rate_limit_refill_rate)
+        self._rate_limit_tokens      = min(settings.RATE_LIMIT_REQUESTS, self._rate_limit_tokens + time_passed * self._rate_limit_refill_rate)
         self._rate_limit_last_refill = now
         
         if (self._rate_limit_tokens >= 1):
@@ -205,6 +201,7 @@ class LLMManager:
             return True
         
         log_info("Rate limit hit, waiting...", tokens_remaining = self._rate_limit_tokens)
+        
         return False
     
 
@@ -215,10 +212,11 @@ class LLMManager:
         while not self._check_rate_limit():
             time.sleep(0.5)
     
+
     # UNIFIED COMPLETION METHOD
     @ContractAnalyzerLogger.log_execution_time("llm_complete")
-    def complete(self, prompt: str, provider: Optional[LLMProvider] = None, model: Optional[str] = None, temperature: float = 0.1, 
-                 max_tokens: int = 2000, system_prompt: Optional[str] = None, json_mode: bool = False, retry_on_error: bool = True, 
+    def complete(self, prompt: str, provider: Optional[LLMProvider] = None, model: Optional[str] = None, temperature: Optional[float] = None, 
+                 max_tokens: Optional[int] = None, system_prompt: Optional[str] = None, json_mode: bool = False, retry_on_error: bool = True, 
                  fallback_providers: Optional[List[LLMProvider]] = None) -> LLMResponse:
         """
         Unified completion method for all providers
@@ -231,9 +229,9 @@ class LLMManager:
             
             model              : Model name (provider-specific)
             
-            temperature        : Sampling temperature (0.0-1.0)
+            temperature        : Sampling temperature (0.0-1.0, default from settings/config)
             
-            max_tokens         : Maximum tokens to generate
+            max_tokens         : Maximum tokens to generate (default from config)
             
             system_prompt      : System prompt (if supported)
             
@@ -247,13 +245,16 @@ class LLMManager:
         --------
             { LLMResponse }    : LLMResponse object
         """
-        provider = provider or self.default_provider
+        provider    = provider or self.default_provider
+        temperature = temperature or self.ollama_temperature
+        max_tokens  = max_tokens or self.generation_config["max_tokens"]
         
         log_info("LLM completion request",
                  provider      = provider.value,
                  prompt_length = len(prompt),
                  temperature   = temperature,
                  max_tokens    = max_tokens,
+                 json_mode     = json_mode,
                 )
         
         # Rate limiting
@@ -294,7 +295,7 @@ class LLMManager:
             log_error(e, context = {"component" : "LLMManager", "operation" : "complete", "provider" : provider.value})
             
             # Try fallback providers
-            if retry_on_error and fallback_providers:
+            if (retry_on_error and fallback_providers):
                 log_info("Trying fallback providers", fallbacks = [p.value for p in fallback_providers])
                 
                 for fallback_provider in fallback_providers:
@@ -303,6 +304,7 @@ class LLMManager:
                     
                     try:
                         log_info(f"Attempting fallback to {fallback_provider.value}")
+                        # Prevent infinite recursion
                         return self.complete(prompt         = prompt,
                                              provider       = fallback_provider,
                                              model          = model,
@@ -310,7 +312,7 @@ class LLMManager:
                                              max_tokens     = max_tokens,
                                              system_prompt  = system_prompt,
                                              json_mode      = json_mode,
-                                             retry_on_error = False,  # Prevent infinite recursion
+                                             retry_on_error = False,  
                                             )
 
                     except Exception as fallback_error:
@@ -326,8 +328,9 @@ class LLMManager:
                                success         = False,
                                error_message   = str(e),
                               )
-    
-    # OLLAMA PROVIDER
+
+
+    # OLLAMA Provider
     def _complete_ollama(self, prompt: str, model: Optional[str], temperature: float, max_tokens: int, system_prompt: Optional[str], json_mode: bool) -> LLMResponse:
         """
         Complete using local Ollama
@@ -383,7 +386,7 @@ class LLMManager:
                           )
     
 
-    # OPENAI PROVIDER
+    # Open-AI Provider
     def _complete_openai(self, prompt: str, model: Optional[str], temperature: float, max_tokens: int, system_prompt: Optional[str], json_mode: bool) -> LLMResponse:
         """
         Complete using OpenAI API
@@ -435,12 +438,12 @@ class LLMManager:
                            raw_response    = response.to_dict(),
                           )
     
-    # ANTHROPIC PROVIDER
+    # Anthropic Provider
     def _complete_anthropic(self, prompt: str, model: Optional[str], temperature: float, max_tokens: int, system_prompt: Optional[str]) -> LLMResponse:
         """
         Complete using Anthropic (Claude) API
         """
-        if (not ANTHROPIC_AVAILABLE or not self.anthropic_client):
+        if not ANTHROPIC_AVAILABLE or not self.anthropic_client:
             raise ValueError("Anthropic not available. Install with: pip install anthropic")
         
         start_time = time.time()
@@ -471,7 +474,8 @@ class LLMManager:
                            raw_response    = message.dict(),
                           )
     
-    # SPECIALIZED METHODS
+
+    # Specialized Methods 
     def generate_structured_json(self, prompt: str, schema_description: str, provider: Optional[LLMProvider] = None, **kwargs) -> Dict[str, Any]:
         """
         Generate structured JSON output
@@ -479,7 +483,7 @@ class LLMManager:
         Arguments:
         ----------
             prompt             : User prompt
-            
+
             schema_description : Description of expected JSON schema
             
             provider           : LLM provider
@@ -531,7 +535,7 @@ class LLMManager:
             prompts   : List of prompts
             
             provider  : LLM provider
-
+            
             **kwargs  : Additional arguments for complete()
         
         Returns:
@@ -563,7 +567,7 @@ class LLMManager:
         return responses
     
 
-    # OLLAMA-SPECIFIC METHODS
+    # OLLAMA-Specific Methods
     def list_ollama_models(self) -> List[str]:
         """
         List available local Ollama models
@@ -603,7 +607,7 @@ class LLMManager:
                 if line:
                     data = json.loads(line)
                     
-                    if 'status' in data:
+                    if ('status' in data):
                         log_info(f"Pull status: {data['status']}")
             
             log_info(f"Model pulled successfully: {model_name}")
@@ -613,7 +617,8 @@ class LLMManager:
             log_error(e, context = {"component" : "LLMManager", "operation" : "pull_ollama_model", "model" : model_name})
             return False
     
-    # UTILITY METHODS
+
+    # Utility Methods
     def get_provider_info(self, provider: LLMProvider) -> Dict[str, Any]:
         """
         Get information about a provider
@@ -650,6 +655,7 @@ class LLMManager:
         
         return info
     
+
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int, provider: LLMProvider, model: str) -> float:
         """
         Estimate API cost in USD
@@ -668,7 +674,7 @@ class LLMManager:
         --------
                 { float }     : Estimated cost in USD
         """
-        # Pricing per 1K tokens (as of 2024)
+        # Pricing per 1K tokens (as of 2025)
         pricing = {"openai"    : {"gpt-3.5-turbo"       : {"prompt": 0.0015, "completion": 0.002},
                                   "gpt-4"               : {"prompt": 0.03, "completion": 0.06},
                                   "gpt-4-turbo-preview" : {"prompt": 0.01, "completion": 0.03},

@@ -6,7 +6,6 @@ from transformers import AutoModel
 from transformers import AutoTokenizer
 from sentence_transformers import SentenceTransformer
 
-
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -42,6 +41,28 @@ class ModelLoader:
                 )
 
     
+    def _check_model_files_exist(self, local_path: Path) -> bool:
+        """
+        Check if all required model files exist in local path
+        """
+        if not local_path.exists():
+            return False
+            
+        # Check for essential files that indicate a complete model
+        essential_files = ["config.json",
+                           "pytorch_model.bin",
+                           "model.safetensors", 
+                           "vocab.txt",
+                           "tokenizer_config.json"
+                          ]
+        
+        # At least config.json and one model file should exist
+        has_config     = (local_path / "config.json").exists()
+        has_model_file = any((local_path / file).exists() for file in ["pytorch_model.bin", "model.safetensors"])
+        
+        return has_config and has_model_file
+
+    
     def load_legal_bert(self) -> tuple:
         """
         Load Legal-BERT model and tokenizer (nlpaueb/legal-bert-base-uncased)
@@ -58,33 +79,37 @@ class ModelLoader:
             return info.model, info.tokenizer
         
         # Mark as loading
-        self.registry.register(ModelType.LEGAL_BERT, ModelInfo(name   = "legal-bert", 
-                                                               type   = ModelType.LEGAL_BERT, 
-                                                               status = ModelStatus.LOADING,
-                                                              )
+        self.registry.register(ModelType.LEGAL_BERT, 
+                               ModelInfo(name   = "legal-bert", 
+                                         type   = ModelType.LEGAL_BERT, 
+                                         status = ModelStatus.LOADING,
+                                        )
                               )
         
         try:
             config = self.config.LEGAL_BERT
+            local_path     = config["local_path"]
+            force_download = config.get("force_download", False)
             
-            # Try loading from local cache first
-            if config["local_path"].exists():
-                log_info(f"Loading Legal-BERT from local cache", path = str(config["local_path"]))
+            # Check if we should use local cache
+            if self._check_model_files_exist(local_path) and not force_download:
+                log_info(f"Loading Legal-BERT from local cache", path=str(local_path))
+                
+                model     = AutoModel.from_pretrained(pretrained_model_name_or_path = str(local_path))
+                tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path = str(local_path))
 
-                model     = AutoModel.from_pretrained(pretrained_model_name_or_path = config["local_path"])
-                tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path = config["local_path"])
-            
             else:
                 log_info(f"Downloading Legal-BERT from HuggingFace", model_name = config["model_name"])
-
+                
                 model     = AutoModel.from_pretrained(pretrained_model_name_or_path = config["model_name"])
                 tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path = config["model_name"])
                 
                 # Save to local cache
-                log_info(f"Saving Legal-BERT to local cache", path = str(config["local_path"]))
+                log_info(f"Saving Legal-BERT to local cache", path = str(local_path))
+                local_path.mkdir(parents = True, exist_ok = True)
 
-                model.save_pretrained(save_directory = config["local_path"])
-                tokenizer.save_pretrained(save_directory = config["local_path"])
+                model.save_pretrained(save_directory = str(local_path))
+                tokenizer.save_pretrained(save_directory = str(local_path))
             
             # Move to device
             model.to(self.device)
@@ -101,10 +126,8 @@ class ModelLoader:
                                              model          = model,
                                              tokenizer      = tokenizer,
                                              memory_size_mb = memory_mb,
-                                             metadata       = {"device"     : self.device, 
-                                                               "model_name" : config["model_name"],
-                                                              },
-                                            ),
+                                             metadata       = {"device" : self.device, "model_name" : config["model_name"]}
+                                            )
                                   )
             
             log_info("Legal-BERT loaded successfully",
@@ -116,11 +139,84 @@ class ModelLoader:
             return model, tokenizer
             
         except Exception as e:
-            log_error(e, context = {"component" : "ModelLoader", "operation" : "load_legal_bert", "model_name" : self.config.LEGAL_BERT["model_name"]})
+            log_error(e, context = {"component": "ModelLoader", "operation": "load_legal_bert", "model_name": self.config.LEGAL_BERT["model_name"]})
             
             self.registry.register(ModelType.LEGAL_BERT,
                                    ModelInfo(name          = "legal-bert",
                                              type          = ModelType.LEGAL_BERT,
+                                             status        = ModelStatus.ERROR,
+                                             error_message = str(e),
+                                            )
+                                  )
+            raise
+
+
+    def load_classifier_model(self) -> tuple:
+        """
+        Load contract classification model using Legal-BERT with classification head
+        """
+        # Check if already loaded
+        if self.registry.is_loaded(ModelType.CLASSIFIER):
+            info = self.registry.get(ModelType.CLASSIFIER)
+
+            log_info("Classifier model already loaded from cache",
+                     memory_mb    = info.memory_size_mb,
+                     access_count = info.access_count,
+                    )
+
+            return info.model, info.tokenizer
+        
+        # Mark as loading
+        self.registry.register(ModelType.CLASSIFIER,
+                               ModelInfo(name   = "classifier", 
+                                         type   = ModelType.CLASSIFIER, 
+                                         status = ModelStatus.LOADING,
+                                        )
+                              )
+        
+        try:
+            config = self.config.CLASSIFIER_MODEL
+            
+            log_info("Loading classifier model (Legal-BERT based)", 
+                     embedding_dim  = config["embedding_dim"],
+                     hidden_dim     = config["hidden_dim"],
+                     num_categories = config["num_categories"],
+                    )
+            
+            # Use the Legal-BERT model but prepare it for classification
+            base_model, tokenizer = self.load_legal_bert()
+            
+            # Register as loaded (sharing the same Legal-BERT instance)
+            self.registry.register(ModelType.CLASSIFIER,
+                                   ModelInfo(name           = "classifier",
+                                             type           = ModelType.CLASSIFIER,
+                                             status         = ModelStatus.LOADED,
+                                             model          = base_model,  
+                                             tokenizer      = tokenizer,   
+                                             memory_size_mb = 0.0,  
+                                             metadata       = {"device"        : self.device, 
+                                                               "base_model"    : "legal-bert",
+                                                               "embedding_dim" : config["embedding_dim"],
+                                                               "num_classes"   : config["num_categories"],
+                                                               "purpose"       : "contract_type_classification",
+                                                              }
+                                            )
+                                  )
+            
+            log_info("Classifier model loaded successfully",
+                     base_model     = "legal-bert",
+                     num_categories = config["num_categories"],
+                     note           = "Using Legal-BERT for both clause extraction and classification",
+                    )
+            
+            return base_model, tokenizer
+            
+        except Exception as e:
+            log_error(e, context = {"component": "ModelLoader", "operation": "load_classifier_model"})
+            
+            self.registry.register(ModelType.CLASSIFIER,
+                                   ModelInfo(name          = "classifier",
+                                             type          = ModelType.CLASSIFIER,
                                              status        = ModelStatus.ERROR,
                                              error_message = str(e),
                                             )
@@ -135,12 +231,11 @@ class ModelLoader:
         # Check if already loaded
         if self.registry.is_loaded(ModelType.EMBEDDING):
             info = self.registry.get(ModelType.EMBEDDING)
-            
+
             log_info("Embedding model already loaded from cache",
                      memory_mb    = info.memory_size_mb,
                      access_count = info.access_count,
                     )
-
             return info.model
         
         # Mark as loading
@@ -148,35 +243,35 @@ class ModelLoader:
                                ModelInfo(name   = "embedding", 
                                          type   = ModelType.EMBEDDING, 
                                          status = ModelStatus.LOADING,
-                                        ),
+                                        )
                               )
         
         try:
-            config = self.config.EMBEDDING_MODEL
+            config         = self.config.EMBEDDING_MODEL
+            local_path     = config["local_path"]
+            force_download = config.get("force_download", False)
             
-            # Load model
-            if config["local_path"].exists():
-                log_info("Loading embedding model from local cache",
-                         path = str(config["local_path"]),
-                        )
+            # Check if we should use local cache
+            if local_path.exists() and not force_download:
+                log_info("Loading embedding model from local cache", path = str(local_path))
 
-                model = SentenceTransformer(model_name_or_path = str(config["local_path"]))
-            
+                model = SentenceTransformer(model_name_or_path = str(local_path))
+
             else:
                 log_info("Downloading embedding model from HuggingFace", model_name = config["model_name"])
-
-                model = SentenceTransformer(model_name_or_path = config["model_name"])
+                
+                model = SentenceTransformer(model_name_or_path = config["model_name"]) 
                 
                 # Save to local cache
-                log_info("Saving embedding model to local cache", path = str(config["local_path"]))
-                
-                model.save(str(config["local_path"]))
+                log_info("Saving embedding model to local cache", path = str(local_path))
+                local_path.mkdir(parents = True, exist_ok = True)
+                model.save(str(local_path))
             
             # Move to device
-            if (self.device == "cuda"):
+            if self.device == "cuda":
                 model = model.to(self.device)
             
-            # Estimate memory size : approximate for sentence transformers
+            # Estimate memory size
             memory_mb = 100  
             
             # Register as loaded
@@ -186,11 +281,8 @@ class ModelLoader:
                                              status         = ModelStatus.LOADED,
                                              model          = model,
                                              memory_size_mb = memory_mb,
-                                             metadata       = {"device"     : self.device,
-                                                               "model_name" : config["model_name"],
-                                                               "dimension"  : config["dimension"],
-                                                              }
-                                            ),
+                                             metadata       = {"device": self.device, "model_name": config["model_name"], "dimension": config["dimension"]}
+                                            )
                                   )
             
             log_info("Embedding model loaded successfully",
@@ -202,7 +294,7 @@ class ModelLoader:
             return model
             
         except Exception as e:
-            log_error(e, context = {"component" : "ModelLoader", "operation" : "load_embedding_model", "model_name" : self.config.EMBEDDING_MODEL["model_name"]})
+            log_error(e, context = {"component": "ModelLoader", "operation": "load_embedding_model", "model_name": self.config.EMBEDDING_MODEL["model_name"]})
             
             self.registry.register(ModelType.EMBEDDING,
                                    ModelInfo(name          = "embedding",
@@ -211,6 +303,54 @@ class ModelLoader:
                                              error_message = str(e),
                                             )
                                   )
+            raise
+
+    
+    def ensure_models_downloaded(self):
+        """
+        Ensure all required models are downloaded before use
+        """
+        log_info("Ensuring all models are downloaded...")
+        
+        try:
+            # Download Legal-BERT if needed
+            if not self.registry.is_loaded(ModelType.LEGAL_BERT):
+                config     = self.config.LEGAL_BERT
+                local_path = config["local_path"]
+                
+                if not self._check_model_files_exist(local_path):
+                    log_info("Pre-downloading Legal-BERT...")
+
+                    model     = AutoModel.from_pretrained(pretrained_model_name_or_path = config["model_name"])
+                    tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path = config["model_name"])
+                    
+                    local_path.mkdir(parents = True, exist_ok = True)
+                    model.save_pretrained(save_directory = str(local_path))
+                    tokenizer.save_pretrained(save_directory = str(local_path))
+
+                    log_info("Legal-BERT pre-downloaded successfully")
+            
+            # Download embedding model if needed
+            if not self.registry.is_loaded(ModelType.EMBEDDING):
+                config     = self.config.EMBEDDING_MODEL
+                local_path = config["local_path"]
+                
+                if not local_path.exists():
+                    log_info("Pre-downloading embedding model...")
+                    model = SentenceTransformer(model_name_or_path = config["model_name"])
+
+                    local_path.mkdir(parents = True, exist_ok = True)
+
+                    model.save(str(local_path))
+                    log_info("Embedding model pre-downloaded successfully")
+            
+            # Note: Classifier model is a stub, no download needed
+            log_info("Classifier model stub - no download required (uses Legal-BERT)")
+                    
+            log_info("All models are ready for use")
+            
+        except Exception as e:
+            log_error(e, context={"component": "ModelLoader", "operation": "ensure_models_downloaded"})
             raise
 
     
@@ -234,5 +374,4 @@ class ModelLoader:
         """
         log_info("Clearing all models from cache")
         self.registry.clear_all()
-
         log_info("All models cleared from cache")

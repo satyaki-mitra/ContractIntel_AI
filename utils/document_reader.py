@@ -1,6 +1,7 @@
 # DEPENDENCIES
 import io
 import re
+import sys
 import PyPDF2
 from typing import Any
 from typing import Dict
@@ -8,6 +9,11 @@ from typing import Union
 from pathlib import Path
 from docx import Document
 from typing import Optional
+
+# Add parent directory to path for imports
+#sys.path.append(str(Path(__file__).parent.parent))
+
+from config.settings import settings
 
 
 try:
@@ -33,14 +39,14 @@ class DocumentReader:
     """
     Document reader supporting PDF and DOCX : Uses PyMuPDF for better PDF extraction when available
     """
-    # File Size Constraint : 10MB
-    MAX_FILE_SIZE   = 10 * 1024 * 1024  
+    # File Size Constraint 
+    MAX_FILE_SIZE   = settings.MAX_UPLOAD_SIZE
 
     # File Type Constraint
-    ALLOWED_TYPES   = ["pdf", "docx", "doc"]
+    ALLOWED_TYPES   = settings.ALLOWED_EXTENSIONS
 
     # Minimum extracted text length
-    MIN_TEXT_LENGTH = 100  
+    MIN_TEXT_LENGTH = settings.MIN_CONTRACT_LENGTH  
     
 
     @staticmethod
@@ -64,20 +70,22 @@ class DocumentReader:
 
             Exception                                   : If extraction fails
         """
-        # Validate file type
-        if file_type.lower() not in DocumentReader.ALLOWED_TYPES:
-            raise ValueError(f"Unsupported file type: {file_type}. Allowed types: {', '.join(DocumentReader.ALLOWED_TYPES)}")
-        
+        # Normalize file_type by removing any dots and converting to lowercase
+        normalized_file_type = file_type.lower().replace('.', '')
+
         # Validate file size
         DocumentReader._validate_file_size(file_path_or_bytes = file_path_or_bytes)
-        
-        # Route to appropriate reader
-        if (file_type.lower() == "pdf"):
+
+        # Use normalized file type for routing
+        if (normalized_file_type == "pdf"):
             text = DocumentReader._read_pdf(file_or_bytes = file_path_or_bytes)
 
-        elif (file_type.lower() in ["docx", "doc"]):
-            text = DocumentReader._read_docx(file_or_bytes = file_path_or_bytes)
+        elif (normalized_file_type in ["docx", "doc"]):
+            text = DocumentReader._read_docx(file_or_bytes = file_path_or_bytes) 
         
+        elif (normalized_file_type == "txt"):
+            text = DocumentReader._read_txt(file_or_bytes = file_path_or_bytes)
+
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
         
@@ -249,6 +257,36 @@ class DocumentReader:
         except Exception as e:
             raise Exception(f"DOCX extraction failed: {repr(e)}")
     
+    
+    @staticmethod
+    def _read_txt(file_or_bytes: Union[str, Path, io.BytesIO]) -> str:
+        """
+        Read text file with encoding detection
+        """
+        try:
+            if isinstance(file_or_bytes, (str, Path)):
+                with open(file_or_bytes, 'rb') as f:
+                    content = f.read()
+            
+            else:
+                file_or_bytes.seek(0)
+                content = file_or_bytes.read()
+            
+            # Detect encoding
+            encoding = DocumentReader.detect_encoding(content)
+            
+            # Decode with detected encoding, fallback to utf-8
+            try:
+                text = content.decode(encoding)
+            
+            except UnicodeDecodeError:
+                text = content.decode('utf-8', errors = 'replace')
+            
+            return DocumentReader._post_process_text(text=text)
+        
+        except Exception as e:
+            raise Exception(f"TXT extraction failed: {repr(e)}")
+
 
     @staticmethod
     def _clean_extracted_text(text: str) -> str:
