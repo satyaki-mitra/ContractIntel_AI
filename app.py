@@ -97,6 +97,7 @@ class NumpyJSONEncoder(json.JSONEncoder):
         
         return super().default(obj)
 
+
 class NumpyJSONResponse(JSONResponse):
     def render(self, content: Any) -> bytes:
         
@@ -147,9 +148,8 @@ def convert_numpy_types(obj: Any) -> Any:
 def safe_serialize_response(data: Any) -> Any:
     return convert_numpy_types(data)
 
-# ============================================================================
+
 # PYDANTIC SCHEMAS 
-# ============================================================================
 class SerializableBaseModel(BaseModel):
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         data = super().dict(*args, **kwargs)
@@ -158,7 +158,8 @@ class SerializableBaseModel(BaseModel):
     
     def json(self, *args, **kwargs) -> str:
         data = self.dict(*args, **kwargs)
-        return json.dumps(data, cls=NumpyJSONEncoder, *args, **kwargs)
+        return json.dumps(data, cls = NumpyJSONEncoder, *args, **kwargs)
+
 
 class HealthResponse(SerializableBaseModel):
     status          : str
@@ -170,7 +171,7 @@ class HealthResponse(SerializableBaseModel):
 
 
 class AnalysisOptions(SerializableBaseModel):
-    max_clauses                 : int  = Field(default = 15, ge = 5, le = 30)
+    max_clauses                 : int  = Field(default = 100, ge = 5, le = 50)
     interpret_clauses           : bool = Field(default = True)
     generate_negotiation_points : bool = Field(default = True)
     compare_to_market           : bool = Field(default = False)  # Disabled for now
@@ -205,9 +206,7 @@ class FileValidationResponse(SerializableBaseModel):
     report     : Optional[Dict[str, Any]] = None
 
 
-# ============================================================================
 # SERVICE INITIALIZATION WITH FULL PIPELINE INTEGRATION
-# ============================================================================
 class PreloadedAnalysisService:
     """
     Analysis service with complete pipeline integration
@@ -732,10 +731,8 @@ class PreloadedAnalysisService:
         return contract_type
 
 
-# ============================================================================
-# FASTAPI APPLICATION
-# ============================================================================
-# Global instances
+
+# FASTAPI APPLICATION : Global instances
 analysis_service : Optional[PreloadedAnalysisService] = None
 app_start_time                                        = time.time()
 
@@ -798,11 +795,10 @@ app.add_middleware(CORSMiddleware,
                   )
 
 
-# ============================================================================
 # HELPER FUNCTIONS
-# ============================================================================
 def validate_file(file: UploadFile) -> tuple[bool, str]:
     file_extension = os.path.splitext(file.filename)[1].lower()
+    
     if file_extension not in settings.ALLOWED_EXTENSIONS:
         return False, f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
     
@@ -854,9 +850,8 @@ def validate_contract_text(text: str) -> tuple[bool, str]:
     return True, "OK"
 
 
-# ============================================================================
+
 # API ROUTES
-# ============================================================================
 @app.get("/")
 async def serve_frontend():
     return FileResponse(str(STATIC_DIR / "index.html"))
@@ -891,7 +886,7 @@ async def get_detailed_status():
 
 
 @app.post("/api/v1/analyze/file", response_model = AnalysisResult)
-async def analyze_contract_file(file: UploadFile = File(...), max_clauses: int = Form(50), interpret_clauses: bool = Form(True),   
+async def analyze_contract_file(file: UploadFile = File(...), max_clauses: int = Form(100), interpret_clauses: bool = Form(True),   
                                 generate_negotiation_points: bool = Form(True), compare_to_market: bool = Form(False)):
     if not analysis_service:
         raise HTTPException(status_code = 503, 
@@ -956,7 +951,7 @@ async def analyze_contract_file(file: UploadFile = File(...), max_clauses: int =
 
 
 @app.post("/api/v1/analyze/text", response_model = AnalysisResult)
-async def analyze_contract_text(contract_text: str = Form(..., description="Contract text to analyze"), max_clauses: int = Form(15), interpret_clauses: bool = Form(True),
+async def analyze_contract_text(contract_text: str = Form(..., description="Contract text to analyze"), max_clauses: int = Form(100), interpret_clauses: bool = Form(True),
                                 generate_negotiation_points: bool = Form(True), compare_to_market: bool = Form(False)):
     if not analysis_service:
         raise HTTPException(status_code = 503, 
@@ -1011,7 +1006,7 @@ async def analyze_contract_text(contract_text: str = Form(..., description="Cont
 @app.post("/api/v1/generate-pdf")
 async def generate_pdf_from_analysis(analysis_result: Dict[str, Any]):
     try:
-        # Pass the *full* analysis_result dictionary to the PDF generator
+        # Pass the full analysis_result dictionary to the PDF generator
         pdf_buffer  = generate_pdf_report(analysis_result = analysis_result) 
         analysis_id = analysis_result.get('analysis_id', 'report')
         
@@ -1123,9 +1118,7 @@ async def validate_contract_text_endpoint(contract_text: str = Form(...)):
                            )
 
 
-# ============================================================================
 # ERROR HANDLERS AND MIDDLEWARE
-# ============================================================================
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     return NumpyJSONResponse(status_code = exc.status_code,
@@ -1159,9 +1152,8 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# ============================================================================
-# MAIN
-# ============================================================================
+
+# MAIN 
 if __name__ == "__main__":
     def signal_handler(sig, frame):
         print("\n👋 Received Ctrl+C, shutting down gracefully...")

@@ -91,14 +91,14 @@
 
         .hero-title {
             font-size: 3.5rem;
-            font-weight: 800;
+            font-weight: 1000;
             margin-bottom: 1.5rem;
         }
 
         .hero-subtitle {
             font-size: 1.8rem;
             margin-bottom: 3rem;
-            max-width: 900px;
+            max-width: 1200px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -667,54 +667,6 @@
             font-weight: 600;
         }
 
-        .category-breakdown-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-top: 2rem;
-            max-height: 700px;
-            overflow-y: auto;
-        }
-
-        .category-breakdown-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .category-item {
-            margin-bottom: 1rem;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e5e5e5;
-        }
-
-        .category-item:last-child {
-            border-bottom: none;
-        }
-
-        .category-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-
-        .category-name {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .category-score {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .score-critical { color: #dc2626; }
-        .score-high { color: #f97316; }
-        .score-medium { color: #ca8a04; }
-        .score-low { color: #16a34a; }
-
         .progress-bar {
             height: 8px;
             background: #f0f0f0;
@@ -732,116 +684,6 @@
         .progress-high { background: #f97316; }
         .progress-medium { background: #ca8a04; }
         .progress-low { background: #16a34a; }
-
-        .category-description {
-            font-size: 0.9rem;
-            color: #666;
-            line-height: 1.6;
-        }
-
-        .clause-analysis-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-top: 2rem;
-            max-height: 700px;
-            overflow-y: auto;
-        }
-
-        .clause-analysis-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .clause-item {
-            border: 1px solid #e5e5e5;
-            border-left: 4px solid #dc2626;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            background: white;
-            transition: background 0.2s;
-        }
-
-        .clause-item:hover {
-            background: #f8f9ff;
-        }
-
-        .clause-item.high {
-            border-left-color: #f97316;
-        }
-
-        .clause-item.medium {
-            border-left-color: #ca8a04;
-        }
-
-        .clause-item.low {
-            border-left-color: #16a34a;
-        }
-
-        .clause-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #e5e5e5;
-        }
-
-        .clause-reference {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            font-weight: 600;
-            color: #999;
-            margin-bottom: 0.5rem;
-        }
-
-        .clause-text {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .severity-badge {
-            padding: 0.375rem 0.875rem;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .badge-critical {
-            background: #fee;
-            color: #dc2626;
-        }
-
-        .badge-high {
-            background: #fff4e6;
-            color: #f97316;
-        }
-
-        .badge-medium {
-            background: #fef9c3;
-            color: #ca8a04;
-        }
-
-        .badge-low {
-            background: #dcfce7;
-            color: #16a34a;
-        }
-
-        .clause-section {
-            margin-top: 1rem;
-        }
-
-        .clause-section-title {
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            color: #333;
-        }
 
         .error-display {
             position: fixed;
@@ -895,14 +737,241 @@
             cursor: pointer;
         }
 
-        .negotiation-point-item {
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #f0f0f0;
+        /* ========== NEW RESULTS TAB STYLES ========== */
+        .results-tabs {
+            margin-bottom: 2rem;
         }
-        .negotiation-point-item:last-child {
-            border-bottom: none;
+        .results-tabs-nav {
+            display: flex;
+            border-bottom: 2px solid #e5e5e5;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
         }
-
+        .results-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .results-tab.active {
+            color: #4169e1;
+            border-bottom-color: #4169e1;
+            font-weight: 500;
+        }
+        .results-tab-pane {
+            display: none;
+        }
+        .results-tab-pane.active {
+            display: block;
+        }
+        .risk-category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .risk-category-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #dc2626;
+        }
+        .risk-category-card.high {
+            border-left-color: #f97316;
+        }
+        .risk-category-card.medium {
+            border-left-color: #ca8a04;
+        }
+        .risk-category-card.low {
+            border-left-color: #16a34a;
+        }
+        .risk-category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .risk-category-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .risk-category-score {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        .score-critical { color: #dc2626; }
+        .score-high { color: #f97316; }
+        .score-medium { color: #ca8a04; }
+        .score-low { color: #16a34a; }
+        .risk-category-summary {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        .risk-findings {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .risk-findings ul {
+            margin: 0.5rem 0;
+            padding-left: 1.25rem;
+        }
+        .risk-findings li {
+            margin-bottom: 0.25rem;
+        }
+        .terms-table, .protections-table, .negotiation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .terms-table th, .protections-table th, .negotiation-table th {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e5e5;
+            position: sticky;
+            top: 0;
+        }
+        .terms-table td, .protections-table td, .negotiation-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e5e5;
+            vertical-align: top;
+        }
+        .terms-table tr:hover, .protections-table tr:hover, .negotiation-table tr:hover {
+            background: #f8f9ff;
+        }
+        .severity-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-critical {
+            background: #fee;
+            color: #dc2626;
+        }
+        .badge-high {
+            background: #fff4e6;
+            color: #f97316;
+        }
+        .badge-medium {
+            background: #fef9c3;
+            color: #ca8a04;
+        }
+        .badge-low {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        .clause-details {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+        .clause-section {
+            margin-bottom: 1rem;
+        }
+        .clause-section:last-child {
+            margin-bottom: 0;
+        }
+        .clause-section-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        .clause-section-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .clause-section-text ul {
+            margin: 0.5rem 0;
+            padding-left: 1.25rem;
+        }
+        .clause-section-text li {
+            margin-bottom: 0.25rem;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4169e1;
+            margin-bottom: 0.25rem;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        .scrollable-table-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .clauses-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+        .clause-item {
+            border: 1px solid #e5e5e5;
+            border-left: 4px solid #dc2626;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            background: white;
+            transition: background 0.2s;
+        }
+        .clause-item:hover {
+            background: #f8f9ff;
+        }
+        .clause-item.high {
+            border-left-color: #f97316;
+        }
+        .clause-item.medium {
+            border-left-color: #ca8a04;
+        }
+        .clause-item.low {
+            border-left-color: #16a34a;
+        }
+        .clause-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .clause-reference {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #999;
+            margin-bottom: 0.5rem;
+        }
+        .clause-text {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #333;
+            line-height: 1.6;
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 4px;
+            border-left: 3px solid #4169e1;
+        }
         @media (max-width: 768px) {
             .features-grid {
                 grid-template-columns: 1fr;
@@ -928,6 +997,13 @@
             .btn {
                 width: 100%;
             }
+            .risk-category-grid {
+                grid-template-columns: 1fr;
+            }
+            .terms-table, .protections-table, .negotiation-table {
+                display: block;
+                overflow-x: auto;
+            }
         }
     </style>
 </head>
@@ -948,8 +1024,8 @@
         <!-- Hero Section -->
         <section class="hero-section">
             <div class="container">
-                <h1 class="hero-title">Transform Contract Review</h1>
-                <p class="hero-subtitle">Stop signing blind. Our AI analyzes your contracts in seconds, identifying hidden risks, unfair terms, and missing protections so you can negotiate with confidence.</p>
+                <h1 class="hero-title">Transform Contract Review Leveraging AI</h1>
+                <p class="hero-subtitle">Stop signing blind. Our AI-powered Contract Reviewer analyzes your contracts in minutes, identifying hidden risks, unfair terms, clause-by-clause analysis, missing protections, and potential negotiation points; so you can negotiate with confidence.</p>
                 <div class="cta-button-container">
                     <button class="cta-button" id="getStartedBtn">
                         <i class="fas fa-bolt"></i> Try Now for Free
@@ -962,7 +1038,7 @@
         <section class="section">
             <div class="container">
                 <h2 class="section-title">A Smarter Way to Review Legal Documents</h2>
-                <p class="section-subtitle">Our platform goes beyond simple keyword searches to provide a deep, contextual understanding of your contracts.</p>
+                <p class="section-subtitle">Our platform goes beyond simple keyword searches to provide a deep, contextual understanding of your contracts leveraging Transformers and Artificial Intelligence.</p>
                 <div class="features-grid">
                     <div class="feature-card">
                         <div class="feature-icon">
@@ -1109,97 +1185,7 @@
                         </button>
                     </div>
                 </div>
-
-                <div class="results-grid">
-                    <div class="risk-score-card">
-                        <h2 class="risk-score-title">Overall Risk Score</h2>
-                        <div class="risk-circle">
-                            <svg width="200" height="200">
-                                <circle cx="100" cy="100" r="85" fill="none" stroke="#f0f0f0" stroke-width="20"/>
-                                <circle id="riskCircle" cx="100" cy="100" r="85" fill="none" stroke="#dc2626" stroke-width="20" stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"/>
-                            </svg>
-                            <div class="risk-score-value" id="riskScoreValue">0</div>
-                        </div>
-                        <div class="risk-level" id="riskLevel">NO RISK</div>
-                    </div>
-                    <div class="executive-summary-card">
-                        <h2 class="executive-summary-title">Executive Summary</h2>
-                        <p class="executive-summary" id="executiveSummary">
-                            Analysis results will appear here...
-                        </p>
-                    </div>
-                </div>
-
-                <div class="three-column-grid">
-                    <div class="analysis-card">
-                        <div class="analysis-card-header">
-                            <div class="analysis-card-icon">⚠️</div>
-                            <h3 class="analysis-card-title">Unfavorable Terms</h3>
-                        </div>
-                        <div class="analysis-card-body" id="unfavorableTermsBody">
-                            <ul class="item-list" id="unfavorableTermsList">
-                                <li>No unfavorable terms detected yet</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="analysis-card">
-                        <div class="analysis-card-header">
-                            <div class="analysis-card-icon">🛡️</div>
-                            <h3 class="analysis-card-title">Missing Protections</h3>
-                        </div>
-                        <div class="analysis-card-body" id="missingProtectionsBody">
-                            <ul class="item-list" id="missingProtectionsList">
-                                <li>No missing protections detected yet</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="analysis-card">
-                        <div class="analysis-card-header">
-                            <div class="analysis-card-icon">📖</div>
-                            <h3 class="analysis-card-title">Negotiation Points</h3>
-                        </div>
-                        <div class="analysis-card-body" id="negotiationPointsBody">
-                            <ul class="item-list" id="negotiationPointsList">
-                                <li>No negotiation points generated yet</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="category-breakdown-card">
-                    <div class="analysis-card-header">
-                        <div class="analysis-card-icon">📊</div>
-                        <h3 class="analysis-card-title">Risk Category Breakdown</h3>
-                    </div>
-                    <div class="analysis-card-body" id="categoryBreakdown">
-                        <div class="category-item">
-                            <div class="category-header">
-                                <span class="category-name">Waiting for analysis...</span>
-                                <span class="category-score score-low">0/100</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill progress-low" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="clause-analysis-card">
-                    <div class="analysis-card-header">
-                        <div class="analysis-card-icon">📝</div>
-                        <h3 class="analysis-card-title">Clause-by-Clause Analysis</h3>
-                    </div>
-                    <div class="analysis-card-body" id="clauseAnalysis">
-                        <div class="clause-item">
-                            <div class="clause-header">
-                                <div>
-                                    <div class="clause-reference">STATUS</div>
-                                    <div class="clause-text">Upload a contract to begin analysis</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Tabs will be inserted here by JavaScript -->
             </div>
         </div>
     </div>
@@ -1507,142 +1493,498 @@
             });
         }
 
-        // Display real results from API
+        // ========== RESULTS DISPLAY FUNCTIONS ==========
+
         function displayResults(result) {
-            // Update risk score
+            // Store the result globally for PDF download
+            currentAnalysisResult = result;
+            
+            // Create tabbed interface for results
+            createResultsTabs();
+            
+            // Populate all sections
+            populateOverview(result);
+            populateUnfavorableTerms(result);
+            populateMissingProtections(result);
+            populateNegotiationPoints(result);
+            populateRiskBreakdown(result);
+            populateClauseAnalysis(result);
+            
+            showResults();
+        }
+
+        // Update the createResultsTabs function to remove the old risk circle update
+        function createResultsTabs() {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            // Clear any existing tabs
+            const existingTabs = resultsContent.querySelector('.results-tabs');
+            if (existingTabs) {
+                existingTabs.remove();
+            }
+            
+            // Create tabs container
+            const tabsContainer = document.createElement('div');
+            tabsContainer.className = 'results-tabs';
+            tabsContainer.innerHTML = `
+                <div class="results-tabs-nav">
+                    <button class="results-tab active" data-tab="overview">Overview</button>
+                    <button class="results-tab" data-tab="risk">Risk Analysis</button>
+                    <button class="results-tab" data-tab="terms">Unfavorable Terms</button>
+                    <button class="results-tab" data-tab="protections">Missing Protections</button>
+                    <button class="results-tab" data-tab="negotiation">Negotiation Points</button>
+                    <button class="results-tab" data-tab="clauses">Clause Analysis</button>
+                </div>
+                <div class="results-tabs-content">
+                    <div id="overviewTab" class="results-tab-pane active">
+                        <!-- Overview content will be populated here -->
+                    </div>
+                    <div id="riskTab" class="results-tab-pane">
+                        <!-- Risk analysis content will be populated here -->
+                    </div>
+                    <div id="termsTab" class="results-tab-pane">
+                        <!-- Unfavorable terms content will be populated here -->
+                    </div>
+                    <div id="protectionsTab" class="results-tab-pane">
+                        <!-- Missing protections content will be populated here -->
+                    </div>
+                    <div id="negotiationTab" class="results-tab-pane">
+                        <!-- Negotiation points content will be populated here -->
+                    </div>
+                    <div id="clausesTab" class="results-tab-pane">
+                        <!-- Clause analysis content will be populated here -->
+                    </div>
+                </div>
+            `;
+            
+            // Insert tabs after the results header
+            const resultsHeader = resultsContent.querySelector('.results-header');
+            resultsHeader.parentNode.insertBefore(tabsContainer, resultsHeader.nextSibling);
+            
+            // Add tab switching functionality
+            const tabs = tabsContainer.querySelectorAll('.results-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    // Update tabs
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update content
+                    document.querySelectorAll('.results-tab-pane').forEach(pane => {
+                        pane.classList.remove('active');
+                    });
+                    document.getElementById(tabName + 'Tab').classList.add('active');
+                });
+            });
+        }
+
+        // Update the populateOverview function to handle the risk circle properly
+        function populateOverview(result) {
+            const overviewTab = document.getElementById('overviewTab');
             const score = result.risk_analysis.overall_score;
             const riskLevel = result.risk_analysis.risk_level;
             
-            document.getElementById('riskScoreValue').textContent = score;
-            document.getElementById('riskLevel').textContent = riskLevel.toUpperCase();
-            document.getElementById('riskLevel').className = 'risk-level risk-' + getRiskClass(score);
+            overviewTab.innerHTML = `
+                <div class="results-grid">
+                    <div class="risk-score-card">
+                        <h2 class="risk-score-title">Overall Risk Score</h2>
+                        <div class="risk-circle">
+                            <svg width="200" height="200">
+                                <circle cx="100" cy="100" r="85" fill="none" stroke="#f0f0f0" stroke-width="20"/>
+                                <circle id="riskCircleOverview" cx="100" cy="100" r="85" fill="none" stroke="#dc2626" stroke-width="20" stroke-dasharray="534" stroke-dashoffset="534" stroke-linecap="round"/>
+                            </svg>
+                            <div class="risk-score-value">${score}</div>
+                        </div>
+                        <div class="risk-level risk-${getRiskClass(score)}">${riskLevel.toUpperCase()}</div>
+                    </div>
+                    <div class="executive-summary-card">
+                        <h2 class="executive-summary-title">Executive Summary</h2>
+                        <p class="executive-summary">${result.executive_summary}</p>
+                    </div>
+                </div>
+                
+                <div class="three-column-grid">
+                    <div class="analysis-card">
+                        <div class="analysis-card-header">
+                            <div class="analysis-card-icon">⚠️</div>
+                            <h3 class="analysis-card-title">Unfavorable Terms</h3>
+                        </div>
+                        <div class="analysis-card-body">
+                            <div class="stat-value">${result.unfavorable_terms ? result.unfavorable_terms.length : 0}</div>
+                            <div class="stat-label">Terms identified</div>
+                            <ul class="item-list">
+                                ${result.unfavorable_terms && result.unfavorable_terms.length > 0 ? 
+                                    result.unfavorable_terms.slice(0, 3).map(term => 
+                                        `<li><span class="item-icon">•</span><span class="item-text">${formatText(term.term)}</span></li>`
+                                    ).join('') : 
+                                    '<li>No unfavorable terms detected</li>'
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="analysis-card">
+                        <div class="analysis-card-header">
+                            <div class="analysis-card-icon">🛡️</div>
+                            <h3 class="analysis-card-title">Missing Protections</h3>
+                        </div>
+                        <div class="analysis-card-body">
+                            <div class="stat-value">${result.missing_protections ? result.missing_protections.length : 0}</div>
+                            <div class="stat-label">Protections missing</div>
+                            <ul class="item-list">
+                                ${result.missing_protections && result.missing_protections.length > 0 ? 
+                                    result.missing_protections.slice(0, 3).map(protection => 
+                                        `<li><span class="item-icon">•</span><span class="item-text">${formatText(protection.protection)}</span></li>`
+                                    ).join('') : 
+                                    '<li>No missing protections detected</li>'
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="analysis-card">
+                        <div class="analysis-card-header">
+                            <div class="analysis-card-icon">📖</div>
+                            <h3 class="analysis-card-title">Negotiation Points</h3>
+                        </div>
+                        <div class="analysis-card-body">
+                            <div class="stat-value">${result.negotiation_points ? result.negotiation_points.length : 0}</div>
+                            <div class="stat-label">Points to negotiate</div>
+                            <ul class="item-list">
+                                ${result.negotiation_points && result.negotiation_points.length > 0 ? 
+                                    result.negotiation_points.slice(0, 3).map(point => 
+                                        `<li><span class="item-icon">•</span><span class="item-text">${formatText(point.issue)}</span></li>`
+                                    ).join('') : 
+                                    '<li>No negotiation points generated</li>'
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="analysis-card">
+                    <div class="analysis-card-header">
+                        <div class="analysis-card-icon">📊</div>
+                        <h3 class="analysis-card-title">Contract Classification</h3>
+                    </div>
+                    <div class="analysis-card-body">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div>
+                                <div class="stat-label">Primary Category</div>
+                                <div class="stat-value">${capitalizeFirst(result.classification.category)}</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Subcategory</div>
+                                <div class="stat-value">${capitalizeFirst(result.classification.subcategory) || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Confidence</div>
+                                <div class="stat-value">${(result.classification.confidence * 100).toFixed(1)}%</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Contract Keywords Identified</div>
+                                <div class="stat-value">${result.classification.detected_keywords.length}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
             
-            // Update risk circle
-            const circumference = 534;
-            const offset = circumference - (score / 100) * circumference;
-            const circle = document.getElementById('riskCircle');
-            circle.style.strokeDashoffset = offset;
-            circle.style.stroke = getRiskColor(score);
+            // Update risk circle in overview after the HTML is rendered
+            setTimeout(() => {
+                const circle = document.getElementById('riskCircleOverview');
+                if (circle) {
+                    const circumference = 534;
+                    const offset = circumference - (score / 100) * circumference;
+                    circle.style.strokeDashoffset = offset;
+                    circle.style.stroke = getRiskColor(score);
+                }
+            }, 100);
+        }
+
+        // Populate unfavorable terms in a table
+        function populateUnfavorableTerms(result) {
+            const termsTab = document.getElementById('termsTab');
             
-            // Update executive summary
-            document.getElementById('executiveSummary').textContent = result.executive_summary;
-            
-            // Update Unfavorable Terms
-            const unfavorableList = document.getElementById('unfavorableTermsList');
-            unfavorableList.innerHTML = '';
-            if (result.unfavorable_terms && result.unfavorable_terms.length > 0) {
-                result.unfavorable_terms.slice(0, 8).forEach(term => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<span class="item-icon">•</span><span class="item-text"><strong>${term.clause_reference || term.term}:</strong> ${term.explanation}</span>`;
-                    unfavorableList.appendChild(li);
-                });
-            } else {
-                unfavorableList.innerHTML = '<li>No unfavorable terms detected</li>';
+            if (!result.unfavorable_terms || result.unfavorable_terms.length === 0) {
+                termsTab.innerHTML = '<p>No unfavorable terms detected in this contract.</p>';
+                return;
             }
             
-            // Update Missing Protections
-            const missingList = document.getElementById('missingProtectionsList');
-            missingList.innerHTML = '';
-            if (result.missing_protections && result.missing_protections.length > 0) {
-                result.missing_protections.slice(0, 8).forEach(protection => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<span class="item-icon">•</span><span class="item-text"><strong>${protection.protection}:</strong> ${protection.explanation}</span>`;
-                    missingList.appendChild(li);
-                });
-            } else {
-                missingList.innerHTML = '<li>No missing protections detected</li>';
+            let tableHTML = `
+                <h3>Unfavorable Terms (${result.unfavorable_terms.length} found)</h3>
+                <div class="scrollable-table-container">
+                <table class="terms-table">
+                    <thead>
+                        <tr>
+                            <th>Term</th>
+                            <th>Category</th>
+                            <th>Severity</th>
+                            <th>Clause Reference</th>
+                            <th>Explanation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            result.unfavorable_terms.forEach(term => {
+                tableHTML += `
+                    <tr>
+                        <td><strong>${formatText(term.term)}</strong></td>
+                        <td>${formatCategoryName(term.category)}</td>
+                        <td><span class="severity-badge badge-${term.severity}">${term.severity.toUpperCase()}</span></td>
+                        <td>${term.clause_reference || 'N/A'}</td>
+                        <td>${formatText(term.explanation)}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+                </div>
+            `;
+            
+            termsTab.innerHTML = tableHTML;
+        }
+
+        // Populate missing protections in a table
+        function populateMissingProtections(result) {
+            const protectionsTab = document.getElementById('protectionsTab');
+            
+            if (!result.missing_protections || result.missing_protections.length === 0) {
+                protectionsTab.innerHTML = '<p>No missing protections detected in this contract.</p>';
+                return;
             }
             
-            // Update Negotiation Points
-            const negotiationList = document.getElementById('negotiationPointsList');
-            negotiationList.innerHTML = '';
-            if (result.negotiation_points && result.negotiation_points.length > 0) {
-                const sortedPoints = result.negotiation_points
-                    .slice()
-                    .sort((a, b) => a.priority - b.priority);
-                sortedPoints.forEach(point => {
-                    // Create a detailed negotiation card
-                    const pointDiv = document.createElement('div');
-                    pointDiv.className = 'negotiation-point-item';
-                    pointDiv.innerHTML = `
-                        <div style="font-weight: 600; color: var(--primary); margin-bottom: 0.25rem;">${point.issue}</div>
-                        <div style="font-size: 0.9rem; margin-bottom: 0.5rem; color: #555;">
-                            <span style="font-weight: 600;">Current:</span> ${point.current_language || 'Not specified'}
-                        </div>
-                        <div style="font-size: 0.9rem; margin-bottom: 0.5rem; color: #555;">
-                            <span style="font-weight: 600;">Proposed:</span> ${point.proposed_language || 'Request balanced language'}
-                        </div>
-                        <div style="font-size: 0.9rem; color: #666; font-style: italic;">
-                            ${point.rationale}
-                        </div>
-                    `;
-                    negotiationList.appendChild(pointDiv);
-                });
-            } else {
-                negotiationList.innerHTML = '<li>No negotiation points generated yet</li>';
+            let tableHTML = `
+                <h3>Missing Protections (${result.missing_protections.length} found)</h3>
+                <div class="scrollable-table-container">
+                <table class="protections-table">
+                    <thead>
+                        <tr>
+                            <th>Protection</th>
+                            <th>Importance</th>
+                            <th>Risk Score</th>
+                            <th>Explanation</th>
+                            <th>Suggested Language</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            result.missing_protections.forEach(protection => {
+                tableHTML += `
+                    <tr>
+                        <td><strong>${formatText(protection.protection)}</strong></td>
+                        <td><span class="severity-badge badge-${protection.importance}">${protection.importance.toUpperCase()}</span></td>
+                        <td>${protection.risk_score}/100</td>
+                        <td>${formatText(protection.explanation)}</td>
+                        <td>${formatText(protection.suggested_language || protection.recommendation)}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+                </div>
+            `;
+            
+            protectionsTab.innerHTML = tableHTML;
+        }
+
+        // Populate negotiation points in a table
+        function populateNegotiationPoints(result) {
+            const negotiationTab = document.getElementById('negotiationTab');
+            
+            if (!result.negotiation_points || result.negotiation_points.length === 0) {
+                negotiationTab.innerHTML = '<p>No negotiation points generated for this contract.</p>';
+                return;
             }
             
-            // Update category breakdown
-            const categoryBreakdown = document.getElementById('categoryBreakdown');
-            categoryBreakdown.innerHTML = '';
-            if (result.risk_analysis.category_scores) {
-                Object.entries(result.risk_analysis.category_scores).forEach(([category, score]) => {
-                    const categoryItem = document.createElement('div');
-                    categoryItem.className = 'category-item';
-                    const riskClass = getRiskClass(score);
-                    
-                    categoryItem.innerHTML = `
-                        <div class="category-header">
-                            <span class="category-name">${formatCategoryName(category)}</span>
-                            <span class="category-score score-${riskClass}">${score}/100</span>
+            let tableHTML = `
+                <h3>Negotiation Points (${result.negotiation_points.length} identified)</h3>
+                <div class="scrollable-table-container">
+                <table class="negotiation-table">
+                    <thead>
+                        <tr>
+                            <th>Priority</th>
+                            <th>Issue</th>
+                            <th>Category</th>
+                            <th>Current Language</th>
+                            <th>Proposed Language</th>
+                            <th>Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Sort by priority
+            const sortedPoints = [...result.negotiation_points].sort((a, b) => a.priority - b.priority);
+            
+            sortedPoints.forEach(point => {
+                tableHTML += `
+                    <tr>
+                        <td>${point.priority}</td>
+                        <td><strong>${formatText(point.issue)}</strong></td>
+                        <td>${formatCategoryName(point.category)}</td>
+                        <td>${formatText(point.current_language || 'Not specified')}</td>
+                        <td>${formatText(point.proposed_language || 'Request balanced language')}</td>
+                        <td>${formatText(point.rationale)}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+                </div>
+            `;
+            
+            negotiationTab.innerHTML = tableHTML;
+        }
+
+        // Populate risk breakdown with cards
+        function populateRiskBreakdown(result) {
+            const riskTab = document.getElementById('riskTab');
+            
+            if (!result.risk_analysis.category_scores) {
+                riskTab.innerHTML = '<p>No risk breakdown available for this contract.</p>';
+                return;
+            }
+            
+            // Filter out categories with 0 risk and sort by risk score (descending)
+            const filteredCategories = Object.entries(result.risk_analysis.category_scores)
+                .filter(([category, score]) => score > 0)
+                .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+            
+            if (filteredCategories.length === 0) {
+                riskTab.innerHTML = '<p>No significant risk categories identified in this contract.</p>';
+                return;
+            }
+            
+            let riskHTML = `
+                <h3>Risk Category Breakdown</h3>
+                <div class="risk-category-grid">
+            `;
+            
+            filteredCategories.forEach(([category, score]) => {
+                const riskClass = getRiskClass(score);
+                const categoryDetails = result.risk_analysis.risk_breakdown?.find(
+                    item => item.category.toLowerCase().replace(/\s+/g, '_') === category
+                ) || { summary: 'Review recommended based on risk score', findings: [] };
+                
+                riskHTML += `
+                    <div class="risk-category-card ${riskClass}">
+                        <div class="risk-category-header">
+                            <span class="risk-category-name">${formatCategoryName(category)}</span>
+                            <span class="risk-category-score score-${riskClass}">${score}/100</span>
                         </div>
                         <div class="progress-bar">
                             <div class="progress-fill progress-${riskClass}" style="width: ${score}%"></div>
                         </div>
-                        <div class="category-description">
-                            ${getCategoryDescription(category, score)}
-                        </div>
-                    `;
-                    categoryBreakdown.appendChild(categoryItem);
-                });
+                        <div class="risk-category-summary">${categoryDetails.summary}</div>
+                        ${categoryDetails.findings && categoryDetails.findings.length > 0 ? `
+                            <div class="risk-findings">
+                                <strong>Key Findings:</strong>
+                                <ul>
+                                    ${categoryDetails.findings.slice(0, 3).map(finding => `<li>${formatText(finding)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            riskHTML += `</div>`;
+            
+            riskTab.innerHTML = riskHTML;
+        }
+
+        // Populate clause analysis with detailed view
+        function populateClauseAnalysis(result) {
+            const clausesTab = document.getElementById('clausesTab');
+            
+            if (!result.clauses || result.clauses.length === 0) {
+                clausesTab.innerHTML = '<p>No clauses extracted from this contract.</p>';
+                return;
             }
             
-            // Update clause analysis to use analysis and recommendation
-            const clauseAnalysis = document.getElementById('clauseAnalysis');
-            clauseAnalysis.innerHTML = '';
-            if (result.clauses && result.clauses.length > 0) {
-                result.clauses.slice(0, 20).forEach(clause => {
-                    const clauseItem = document.createElement('div');
-                    const riskClass = getRiskClass(clause.risk_score || 0);
-                    clauseItem.className = `clause-item ${riskClass}`;
-                    // Use explanation as analysis if a dedicated 'analysis' field isn't in the clause object
-                    // If you have a dedicated 'analysis' field from ClauseInterpretation, use result.clause_interpretations instead
-                    const analysisText = clause.explanation || 'Analysis not available.';
-                    // The 'suggested_fix' or 'recommendation' from UnfavorableTerm is the recommendation
-                    const recommendationText = clause.suggested_fix || 'Review with legal counsel.';
-                    
-                    clauseItem.innerHTML = `
+            let clausesHTML = `
+                <h3>Clause-by-Clause Analysis (${result.clauses.length} clauses)</h3>
+                <div class="clauses-container">
+            `;
+            
+            result.clauses.forEach(clause => {
+                const riskClass = getRiskClass(clause.risk_score || 0);
+                const interpretation = result.clause_interpretations?.find(
+                    interp => interp.clause_reference === clause.reference
+                );
+                
+                clausesHTML += `
+                    <div class="clause-item ${riskClass}">
                         <div class="clause-header">
                             <div>
                                 <div class="clause-reference">${clause.reference || 'CLAUSE'}</div>
                                 <div class="clause-text">${clause.text}</div>
                             </div>
                             <div class="severity-badge badge-${riskClass}">
-                                ${Math.round((clause.risk_score || 0))}% risk
+                                ${Math.round(clause.risk_score || 0)}% risk
                             </div>
                         </div>
-                        <div class="clause-section">
-                            <div class="clause-section-title">Analysis</div>
-                            <div class="clause-section-text">${analysisText}</div>
+                        <div class="clause-details">
+                            <div class="clause-section">
+                                <div class="clause-section-title">Category</div>
+                                <div class="clause-section-text">${formatCategoryName(clause.category)}</div>
+                            </div>
+                            ${interpretation ? `
+                                <div class="clause-section">
+                                    <div class="clause-section-title">Plain English Summary</div>
+                                    <div class="clause-section-text">${interpretation.plain_english_summary}</div>
+                                </div>
+                                <div class="clause-section">
+                                    <div class="clause-section-title">Key Points</div>
+                                    <div class="clause-section-text">
+                                        <ul>
+                                            ${interpretation.key_points.map(point => `<li>${formatText(point)}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="clause-section">
+                                    <div class="clause-section-title">Potential Risks</div>
+                                    <div class="clause-section-text">
+                                        <ul>
+                                            ${interpretation.potential_risks.map(risk => `<li>${formatText(risk)}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="clause-section">
+                                    <div class="clause-section-title">Suggested Improvements</div>
+                                    <div class="clause-section-text">
+                                        <ul>
+                                            ${interpretation.suggested_improvements.map(improvement => `<li>${formatText(improvement)}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="clause-section">
+                                    <div class="clause-section-title">Analysis</div>
+                                    <div class="clause-section-text">${clause.explanation || 'Analysis not available.'}</div>
+                                </div>
+                                <div class="clause-section">
+                                    <div class="clause-section-title">Recommendation</div>
+                                    <div class="clause-section-text">${clause.suggested_fix || 'Review with legal counsel.'}</div>
+                                </div>
+                            `}
                         </div>
-                        <div class="clause-section">
-                            <div class="clause-section-title">Recommendation</div>
-                            <div class="clause-section-text">${recommendationText}</div>
-                        </div>
-                    `;
-                    clauseAnalysis.appendChild(clauseItem);
-                });
-            }
+                    </div>
+                `;
+            });
+            
+            clausesHTML += `</div>`;
+            
+            clausesTab.innerHTML = clausesHTML;
         }
 
         // Helper functions
@@ -1666,15 +2008,14 @@
             ).join(' ');
         }
 
-        function getCategoryDescription(category, score) {
-            const descriptions = {
-                'termination_rights': score > 60 ? 'High termination risk detected' : 'Termination terms appear reasonable',
-                'compensation_benefits': score > 60 ? 'Compensation structure needs review' : 'Compensation terms are clear',
-                'confidentiality': score > 60 ? 'Confidentiality terms may be overly broad' : 'Confidentiality terms are balanced',
-                'liability_indemnity': score > 60 ? 'Liability allocation needs attention' : 'Liability terms are reasonable',
-                'intellectual_property': score > 60 ? 'IP rights allocation requires review' : 'IP terms are well-defined'
-            };
-            return descriptions[category] || 'Review recommended based on risk score';
+        function formatText(text) {
+            if (!text) return '';
+            return text.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function capitalizeFirst(text) {
+            if (!text) return '';
+            return text.charAt(0).toUpperCase() + text.slice(1);
         }
 
         // Initialize everything

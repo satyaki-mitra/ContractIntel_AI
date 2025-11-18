@@ -640,7 +640,7 @@ class NegotiationEngine:
             response = self.llm_manager.complete(prompt      = prompt,
                                                  provider    = provider,
                                                  temperature = 0.3,
-                                                 max_tokens  = 400,
+                                                 max_tokens  = 500,
                                                 )
             
             return response.text.strip() if response.success else "Focus on addressing critical risks while maintaining collaborative negotiation tone."

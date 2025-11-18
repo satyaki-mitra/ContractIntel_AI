@@ -1,47 +1,31 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# install system dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
     curl \
-    git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    HF_HOME=/tmp/huggingface \
-    TRANSFORMERS_CACHE=/tmp/transformers \
-    HF_DATASETS_CACHE=/tmp/datasets \
-    TOKENIZERS_PARALLELISM=false
-
-
-# Create necessary directories
-RUN mkdir -p /tmp/huggingface /tmp/transformers /tmp/datasets /app/data/reports /app/data/uploads /app/models/cache /app/logs
-
-# Copy requirements first for better caching
+# Copy requirements and install
 COPY requirements.txt .
-
-# Install python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Download spaCy model
+RUN python -m spacy download en_core_web_sm
+
+# Install Ollama
+RUN curl -fsSL https://ollama.ai/install.sh | sh
+
+# Copy application
 COPY . .
 
-# Clear any incompatible cached models
-RUN rm -rf /tmp/huggingface/* /tmp/transformers/* /app/models/cache/*
+# Create directories
+RUN mkdir -p uploads cache logs
 
-# Expose port 7860 (hugging Face Spaces Standard)
+# Expose port
 EXPOSE 7860
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
-    CMD curl -f http://localhost:7860/health || exit 1
-
-
-# Run the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Simple CMD - start Ollama in background, then start FastAPI
+CMD ollama serve & sleep 20 && ollama pull llama3:8b & uvicorn app:app --host 0.0.0.0 --port 7860

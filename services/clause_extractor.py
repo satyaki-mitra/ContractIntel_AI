@@ -773,13 +773,11 @@ class ComprehensiveClauseExtractor:
         """
         Get clauses with risk indicators
         """
-        risky = [c for c in clauses if c.risk_indicators]
+        risky_clauses = [c for c in clauses if c.risk_indicators]
 
-        risky.sort(key = lambda x: len(x.risk_indicators), reverse = True)
-        
-        top_25_risky_clauses = risky[:25]
+        risky_clauses.sort(key = lambda x: len(x.risk_indicators), reverse = True)
 
-        return top_25_risky_clauses
+        return risky_clauses
 
 
 
@@ -995,9 +993,11 @@ class RiskClauseExtractor:
         for risk_category, category_embedding in self.risk_category_embeddings.items():
             cat_tensor                     = torch.tensor(category_embedding).unsqueeze(0)
             similarity                     = torch.nn.functional.cosine_similarity(text_tensor, cat_tensor).item()
-            semantic_scores[risk_category] = similarity * 100  # Scale to 0-100
+
+            # Scale to 0-100
+            semantic_scores[risk_category] = similarity * 100  
         
-        # Combine scores (60% semantic, 40% keyword)
+        # Combine scores
         combined_scores = dict()
         
         for risk_category in self.risk_rules.CATEGORY_WEIGHTS.keys():

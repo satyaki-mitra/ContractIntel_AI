@@ -607,17 +607,14 @@ class ContractClassifier:
             reasoning.append(f"High semantic similarity to {primary_category.replace('_', ' ')} agreements (similarity: {semantic_match:.2f})")
 
         elif (semantic_match > 0.55):
-            reasoning.append(f"Moderate semantic similarity to {primary_category.replace('_', ' ')} contracts (similarity: {semantic_match:.2f})"
-                            )
+            reasoning.append(f"Moderate semantic similarity to {primary_category.replace('_', ' ')} contracts (similarity: {semantic_match:.2f})")
         
         # Legal-BERT reasoning
         if (legal_bert_match > 0.65):
-            reasoning.append(f"Legal-BERT analysis strongly supports {primary_category.replace('_', ' ')} classification (similarity: {legal_bert_match:.2f})"
-                            )
+            reasoning.append(f"Legal-BERT analysis strongly supports {primary_category.replace('_', ' ')} classification (similarity: {legal_bert_match:.2f})")
 
         elif (legal_bert_match > 0.50):
-            reasoning.append(f"Legal-BERT analysis moderately supports {primary_category.replace('_', ' ')} classification (similarity: {legal_bert_match:.2f})"
-                            )
+            reasoning.append(f"Legal-BERT analysis moderately supports {primary_category.replace('_', ' ')} classification (similarity: {legal_bert_match:.2f})")
         
         # Subcategory reasoning
         if subcategory:

@@ -1,3 +1,14 @@
+---
+title: AI Contract Risk Analyzer
+emoji: 📝
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_file: Dockerfile
+pinned: false
+license: mit
+---
+
 <div align="center">
 
 # AI Contract Risk Analyzer 🤖⚖️
@@ -5,6 +16,14 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Hugging Face Spaces](https://img.shields.io/badge/🤗-Hugging%20Face%20Spaces-blue)](https://huggingface.co/spaces)
+[![Transformers](https://img.shields.io/badge/🤗-Transformers-ffcc33)](https://huggingface.co/transformers/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-ee4c2c)](https://pytorch.org/)
+[![Legal-BERT](https://img.shields.io/badge/Legal--BERT-nlpaueb/legal--bert--base--uncased-orange)](https://huggingface.co/nlpaueb/legal-bert-base-uncased)
+[![Sentence-BERT](https://img.shields.io/badge/Sentence--BERT-all--MiniLM--L6--v2-lightgrey)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+[![Ollama](https://img.shields.io/badge/Ollama-llama3:8b-7c3aed)](https://ollama.ai/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ed)](https://docker.com/)
+[![spaCy](https://img.shields.io/badge/spaCy-3.7+-09a3d5)](https://spacy.io/)
 
 > **Democratizing Legal Intelligence Through AI**  
 > Comprehensive contract risk analysis using an integrated pipeline with Legal-BERT, multi-model NLP, and LLM interpretation
@@ -253,6 +272,8 @@ pip install -r requirements.txt
 # Download spaCy model (optional, for advanced text processing)
 python -m spacy download en_core_web_sm
 
+curl -fsSL https://ollama.ai/install.sh | sh
+
 # Initialize models (on first run)
 python -c "from model_manager.model_loader import ModelLoader; ModelLoader()"
 ```
@@ -376,6 +397,7 @@ contract-guard-ai/
 │
 ├── services/                   # Business logic services
 │   ├── __init__.py
+│   ├── data_models.py          # All services' dataclass schema
 │   ├── contract_classifier.py  # Contract type classification
 │   ├── clause_extractor.py     # Clause extraction (Legal-BERT)
 │   ├── risk_analyzer.py        # Multi-factor risk scoring

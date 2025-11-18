@@ -204,7 +204,7 @@ class SummaryGenerator:
             response = self.llm_manager.complete(prompt        = prompt,
                                                  system_prompt = system_prompt,
                                                  temperature   = 0.3,
-                                                 max_tokens    = 300, 
+                                                 max_tokens    = 500, 
                                                  json_mode     = False,
                                                 )
               
@@ -215,7 +215,7 @@ class SummaryGenerator:
                 raise ValueError(f"LLM generation failed: {response.error_message}")
                 
         except Exception as e:
-            self.logger.error(f"Enhanced LLM summary generation failed: {e}")
+            self.logger.error(f"Enhanced LLM summary generation failed: {repr(e)}")
             # Fallback to basic summary
             return self._generate_fallback_summary_from_context(context = context)
     
@@ -260,9 +260,9 @@ class SummaryGenerator:
         Build prompt for executive summary generation
         """
         # Extract top critical issues only
-        critical_terms       = [t for t in context.unfavorable_terms if self._get_severity(t) == "critical"][:10]
+        critical_terms       = [t for t in context.unfavorable_terms if self._get_severity(t) == "critical"]
         
-        critical_protections = [p for p in context.missing_protections if self._get_importance(p) == "critical"][:10]
+        critical_protections = [p for p in context.missing_protections if self._get_importance(p) == "critical"]
         
         # Build concise context
         critical_issues_text = ""

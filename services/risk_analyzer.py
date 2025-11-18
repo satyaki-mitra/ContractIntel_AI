@@ -192,8 +192,9 @@ class RiskAnalyzer:
             contract_type_enum = self._get_contract_type_enum(category_str = contract_category.category)
             self.term_analyzer = TermAnalyzer(contract_type = contract_type_enum)
             
-            unfavorable_terms = self.term_analyzer.analyze_unfavorable_terms(contract_text = contract_text,
-                                                                             clauses       = clauses)
+            unfavorable_terms  = self.term_analyzer.analyze_unfavorable_terms(contract_text = contract_text,
+                                                                              clauses       = clauses,
+                                                                             )
             
             log_info("Unfavorable terms analysis successful",
                      total_terms = len(unfavorable_terms),
@@ -218,7 +219,8 @@ class RiskAnalyzer:
             self.protection_checker = ProtectionChecker(contract_type = contract_type_enum)
             
             missing_protections     = self.protection_checker.check_missing_protections(contract_text = contract_text,
-                                                                                        clauses       = clauses)
+                                                                                        clauses       = clauses,
+                                                                                       )
             
             log_info("Missing protections analysis successful",
                      total_missing = len(missing_protections),
@@ -266,17 +268,20 @@ class RiskAnalyzer:
         
         # Calculate weighted overall score
         overall_score            = self._calculate_weighted_score(category_scores   = category_scores,
-                                                                  adjusted_weights  = adjusted_weights)
+                                                                  adjusted_weights  = adjusted_weights,
+                                                                 )
         
         risk_level               = self._get_risk_level(score = overall_score)
         
         # Create risk breakdown
         risk_breakdown           = self._create_risk_breakdown(category_scores   = dict(category_scores),
-                                                               detailed_findings = dict(detailed_findings))
+                                                               detailed_findings = dict(detailed_findings),
+                                                              )
         
         # Benchmark comparison
         benchmark_comparison     = self._compare_to_benchmarks(category_scores = category_scores,
-                                                               contract_type   = contract_type_enum)
+                                                               contract_type   = contract_type_enum,
+                                                              )
         
         # Prepare output data
         unfavorable_terms_dict   = [term.to_dict() for term in unfavorable_terms]
@@ -342,9 +347,8 @@ class RiskAnalyzer:
         # Cap score between 0-100
         final_score     = max(0, min(100, int(adjusted_score)))
         
-        # Top 25 findings
         return {"score"    : final_score,
-                "findings" : findings[:25] 
+                "findings" : findings,
                }
     
 

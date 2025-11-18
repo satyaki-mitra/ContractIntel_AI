@@ -129,7 +129,8 @@ class TermAnalyzer:
         log_info("Unfavorable terms analysis complete",
                  total_found = len(final_terms),
                  critical    = sum(1 for t in final_terms if (t.severity == "critical")),
-                 high        = sum(1 for t in final_terms if (t.severity == "high")))
+                 high        = sum(1 for t in final_terms if (t.severity == "high"))
+                )
         
         return final_terms
     
@@ -138,8 +139,8 @@ class TermAnalyzer:
         """
         Analyze clause using comprehensive RiskRules framework
         """
-        terms      = list()
-        text_lower = clause.text.lower()
+        terms         = list()
+        text_lower    = clause.text.lower()
         
         # Map clause category to risk category for consistency
         risk_category = self._map_to_risk_category(clause_category = clause.category)
@@ -269,6 +270,7 @@ class TermAnalyzer:
         
         # Notice period imbalance (from your original but enhanced)
         notice_imbalance = self._check_notice_imbalance(clauses = clauses)
+        
         if notice_imbalance:
             # Ensure the category used is a risk category
             notice_imbalance.category = self._map_to_risk_category(clause_category = "termination") 
@@ -281,6 +283,7 @@ class TermAnalyzer:
         for item in missing_reciprocal:
             # Ensure the category used is a risk category
             item.category = self._map_to_risk_category(clause_category = "indemnification")
+        
         terms.extend(missing_reciprocal)
         
         # Conflicting clauses
@@ -288,6 +291,7 @@ class TermAnalyzer:
         for item in conflicts:
             # Ensure the category used is a risk category
             item.category = self._map_to_risk_category(clause_category = item.category) 
+        
         terms.extend(conflicts)
         
         # One-sided discretionary powers
@@ -295,6 +299,7 @@ class TermAnalyzer:
         for item in one_sided_powers:
             # Ensure the category used is a risk category
             item.category = self._map_to_risk_category(clause_category = item.category)
+        
         terms.extend(one_sided_powers)
         
         return terms
@@ -309,7 +314,6 @@ class TermAnalyzer:
         for protection, config in self.risk_rules.PROTECTION_CHECKLIST.items():
             if not self._has_protection(clauses, protection, config['categories']):
                 # For missing protections, map the first associated category to a risk category
-                # This assumes config['categories'][0] is a clause category like "termination"
                 risk_category = self._map_to_risk_category(clause_category = config['categories'][0]) if config['categories'] else "general"
                 
                 terms.append(UnfavorableTerm(term             = f"Missing Protection: {protection.replace('_', ' ').title()}",
@@ -395,7 +399,7 @@ class TermAnalyzer:
 
     def _check_missing_reciprocal(self, text: str, clauses: List[ExtractedClause]) -> List[UnfavorableTerm]:
         """
-        Enhanced reciprocal provision analysis
+        Reciprocal provision analysis
         """
         terms         = list()
         

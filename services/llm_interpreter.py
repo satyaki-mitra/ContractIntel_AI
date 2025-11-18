@@ -130,7 +130,7 @@ class LLMClauseInterpreter:
 
 
     @ContractAnalyzerLogger.log_execution_time("interpret_clauses")
-    def interpret_clauses(self, clauses: List[ExtractedClause], max_clauses: int = 50, provider: Optional[LLMProvider] = None) -> List[ClauseInterpretation]:
+    def interpret_clauses(self, clauses: List[ExtractedClause], max_clauses: int = 100, provider: Optional[LLMProvider] = None) -> List[ClauseInterpretation]:
         """
         Generate plain-English interpretations for multiple clauses
         
@@ -146,18 +146,23 @@ class LLMClauseInterpreter:
         --------
                    { list }            : List of ClauseInterpretation objects
         """
-        provider = provider or self.default_provider
+        provider        = provider or self.default_provider
         
         log_info(f"Starting clause interpretation", num_clauses = min(len(clauses), max_clauses), provider = provider.value)
         
         # Prioritize clauses by risk indicators and confidence
-        prioritized     = self._prioritize_clauses(clauses, max_clauses)
+        prioritized     = self._prioritize_clauses(clauses     = clauses, 
+                                                   max_clauses = max_clauses,
+                                                  )
           
         interpretations = list()
         
         for clause in prioritized:
             try:
-                interpretation = self._interpret_single_clause(clause, provider)
+                interpretation = self._interpret_single_clause(clause   = clause, 
+                                                               provider = provider,
+                                                              )
+
                 interpretations.append(interpretation)
 
             except Exception as e:
@@ -201,7 +206,7 @@ class LLMClauseInterpreter:
         Generate plain-English interpretation for a single clause
         """
         # Create enhanced prompt with risk context
-        prompt             = self._create_interpretation_prompt(clause)
+        prompt             = self._create_interpretation_prompt(clause = clause)
         
         # Call LLM with structured output
         schema_description = """
@@ -335,7 +340,7 @@ class LLMClauseInterpreter:
 
         elif (risk_score >= 30):
             return "medium"
-            
+
         else:
             return "low"
     
@@ -477,7 +482,7 @@ class LLMClauseInterpreter:
             response = self.llm_manager.complete(prompt      = prompt,
                                                  provider    = provider,
                                                  temperature = 0.2,
-                                                 max_tokens  = 100,
+                                                 max_tokens  = 300,
                                                 ) 
             
             explanation = response.text.strip() if response.success else self._fallback_risk_explanation(overall_risk_score)
@@ -626,13 +631,14 @@ class LLMClauseInterpreter:
             response = self.llm_manager.complete(prompt      = prompt,
                                                  provider    = provider,
                                                  temperature = 0.2,
-                                                 max_tokens  = 200,
+                                                 max_tokens  = 300,
                                                 )
             
             return response.text.strip() if response.success else "Compare with industry standards for similar contracts."
             
         except Exception as e:
             log_error(e, context = {"operation": "generate_market_comparison"})
+            
             return "Review against industry benchmarks for this contract type."
 
 
