@@ -298,7 +298,7 @@ class PreloadedAnalysisService:
             try:
                 # Initialize with LLM manager - ensure constructor args match
                 self.services["negotiation_engine"]       = NegotiationEngine(llm_manager      = self.llm_manager, 
-                                                                              default_provider = LLMProvider.OLLAMA,
+                                                                              default_provider = None,
                                                                              )
                 self.service_status["negotiation_engine"] = "loaded"
 
@@ -314,7 +314,9 @@ class PreloadedAnalysisService:
             log_info("🔄 Pre-loading Summary Generator...")
             try:
                 # Initialize with LLM manager
-                self.services["summary_generator"]       = SummaryGenerator(llm_manager = self.llm_manager)
+                self.services["summary_generator"]       = SummaryGenerator(llm_manager      = self.llm_manager,
+                                                                            default_provider = None,
+                                                                           )
                 self.service_status["summary_generator"] = "loaded"
                 
                 log_info("✅ Summary Generator loaded")
@@ -594,7 +596,7 @@ class PreloadedAnalysisService:
                                                                                                        contract_type       = contract_type_enum,
                                                                                                        overall_risk_score  = risk_score.overall_score,
                                                                                                        max_clauses         = len(clauses), 
-                                                                                                       provider            = LLMProvider.OLLAMA,
+                                                                                                       provider            = None,
                                                                                                       )
                     log_info("LLM risk interpretation generated")
                 

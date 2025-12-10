@@ -23,15 +23,23 @@ class SummaryGenerator:
     """
     LLM-powered executive summary generator for contract analysis : Generates professional, detailed executive summaries using ALL pipeline outputs
     """
-    def __init__(self, llm_manager: Optional[LLMManager] = None):
+    def __init__(self, llm_manager: Optional[LLMManager] = None, default_provider: Optional[LLMProvider] = None):
         """
         Initialize the summary generator
         
         Arguments:
         ----------
-            llm_manager { LLMManager } : LLM manager instance (if None, creates one with default settings)
+            llm_manager       { LLMManager }  : LLM manager instance (if None, creates one with default settings)
+
+            default_provider  { LLMProvider } : Default LLM provider to use if creating new LLMManager
         """
-        self.llm_manager = llm_manager or LLMManager()
+        # Create LLMManager with the specified provider (or use default from settings)
+        if llm_manager is None:
+            self.llm_manager = LLMManager(default_provider = default_provider)
+        
+        else:
+            self.llm_manager = llm_manager
+
         self.logger      = ContractAnalyzerLogger.get_logger() 
         
         self.logger.info("Summary generator initialized")
@@ -39,7 +47,8 @@ class SummaryGenerator:
 
     # Main entry point with full pipeline integration
     def generate_executive_summary(self, contract_text: str, classification: ContractCategory, risk_analysis: RiskScore, risk_interpretation: RiskInterpretation,
-                                   negotiation_playbook: NegotiationPlaybook, unfavorable_terms: List, missing_protections: List, clauses: List) -> str:
+                                   negotiation_playbook: NegotiationPlaybook, unfavorable_terms: List, missing_protections: List, clauses: List,
+                                   provider: Optional[LLMProvider] = None) -> str:
         """
         Generate executive summary using all the pipeline outputs
         
@@ -60,6 +69,8 @@ class SummaryGenerator:
             missing_protections          { List }        : Missing protections
             
             clauses                      { List }        : Extracted clauses
+
+            provider                 { LLMProvide }      : Optional LLM provider override
             
         Returns:
         --------
@@ -78,7 +89,9 @@ class SummaryGenerator:
                                                    )
             
             # Generate summary using LLM
-            summary = self._generate_summary(context = context)
+            summary = self._generate_summary(context  = context, 
+                                             provider = provider,
+                                            )
             
             self.logger.info(f"Executive summary generated - Risk: {context.risk_score}/100 ({context.risk_level})") 
             
@@ -193,7 +206,7 @@ class SummaryGenerator:
         return findings  
     
 
-    def _generate_summary(self, context: SummaryContext) -> str:
+    def _generate_summary(self, context: SummaryContext, provider: Optional[LLMProvider] = None) -> str:
         """
         Generate enhanced summary using comprehensive context
         """
@@ -203,6 +216,7 @@ class SummaryGenerator:
         try:
             response = self.llm_manager.complete(prompt        = prompt,
                                                  system_prompt = system_prompt,
+                                                 provider      = provider,
                                                  temperature   = 0.3,
                                                  max_tokens    = 500, 
                                                  json_mode     = False,

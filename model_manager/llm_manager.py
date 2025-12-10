@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import requests
+import threading
 from enum import Enum
 from typing import Any
 from typing import Dict
@@ -37,14 +38,24 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
+try:
+    from llama_cpp import Llama
+    LLAMA_CPP_AVAILABLE = True
+    
+except ImportError:
+    LLAMA_CPP_AVAILABLE = False
 
+
+# Enums and models
 class LLMProvider(Enum):
     """
     Supported LLM providers
     """
-    OLLAMA    = "ollama"
-    OPENAI    = "openai"
-    ANTHROPIC = "anthropic"
+    OLLAMA     = "ollama"
+    OPENAI     = "openai"
+    ANTHROPIC  = "anthropic"
+    LLAMA_CPP  = "llama_cpp"
+    HF_INFER   = "hf_inference"
 
 
 @dataclass
@@ -78,16 +89,16 @@ class LLMResponse:
 
 class LLMManager:
     """
-    Unified LLM manager for multiple providers : handles Ollama (local), OpenAI API, and Anthropic API
+    Unified LLM manager for multiple providers : handles Ollama (local), OpenAI API, Anthropic API, and Llama.cpp
     """
-    def __init__(self, default_provider: LLMProvider = LLMProvider.OLLAMA, ollama_base_url: Optional[str] = None,
+    def __init__(self, default_provider: Optional[LLMProvider] = None, ollama_base_url: Optional[str] = None,
                  openai_api_key: Optional[str] = None, anthropic_api_key: Optional[str] = None):
         """
         Initialize LLM Manager
         
         Arguments:
         ----------
-            default_provider  : Default LLM provider to use
+            default_provider  : Default LLM provider to use (if None, uses settings.LLM_DEFAULT_PROVIDER)
             
             ollama_base_url   : Ollama server URL (default: from settings)
             
@@ -95,7 +106,7 @@ class LLMManager:
             
             anthropic_api_key : Anthropic API key (or set ANTHROPIC_API_KEY env var)
         """
-        self.default_provider   = default_provider
+        self.default_provider   = default_provider or LLMProvider(settings.LLM_DEFAULT_PROVIDER)
         self.logger             = ContractAnalyzerLogger.get_logger()
         
         # Configuration Variables Initialization
@@ -122,24 +133,44 @@ class LLMManager:
         else:
             self.anthropic_client = None
         
+        # Llama.cpp configuration (lazy loaded)
+        self.llama_cpp_model    = None
+        self.llama_cpp_lock     = threading.Lock()
+        
+        # HuggingFace Inference configuration
+        self.hf_client          = None
+       
+        if (settings.ENABLE_HF_INFERENCE and settings.HF_API_TOKEN):
+            try:
+                from huggingface_hub import InferenceClient
+
+                self.hf_client = InferenceClient(model = settings.HF_MODEL_ID,
+                                                 token = settings.HF_API_TOKEN,
+                                                )
+            except ImportError:
+                log_error("huggingface_hub not installed, HF Inference disabled")
+        
         # Rate limiting (simple token bucket)
         self._rate_limit_tokens      = settings.RATE_LIMIT_REQUESTS
         self._rate_limit_last_refill = time.time()
         self._rate_limit_refill_rate = settings.RATE_LIMIT_REQUESTS / settings.RATE_LIMIT_PERIOD
         
-        # Generation settings 
-        self.generation_config = self.config.LLM_GENERATION
+        # Generation settings from settings (not ModelConfig)
+        self.generation_config       = {"max_tokens"     : settings.LLM_MAX_TOKENS,
+                                        "temperature"    : settings.LLM_TEMPERATURE,
+                                        "top_p"          : settings.LLM_TOP_P,
+                                        "repeat_penalty" : settings.LLM_REPEAT_PENALTY,
+                                       }
         
         log_info("LLMManager initialized",
-                 default_provider    = default_provider.value,
-                 ollama_base_url     = self.ollama_base_url,
-                 ollama_model        = self.ollama_model,
-                 ollama_timeout      = self.ollama_timeout,
-                 ollama_temperature  = self.ollama_temperature,
-                 openai_available    = OPENAI_AVAILABLE and bool(self.openai_api_key),
-                 anthropic_available = ANTHROPIC_AVAILABLE and bool(self.anthropic_api_key),
-                 rate_limit_requests = settings.RATE_LIMIT_REQUESTS,
-                 rate_limit_period   = settings.RATE_LIMIT_PERIOD,
+                 default_provider      = self.default_provider.value,
+                 deployment_env        = settings.DEPLOYMENT_ENV,
+                 ollama_enabled        = settings.ENABLE_OLLAMA,
+                 llama_cpp_enabled     = settings.ENABLE_LLAMA_CPP,
+                 openai_available      = OPENAI_AVAILABLE and bool(self.openai_api_key),
+                 anthropic_available   = ANTHROPIC_AVAILABLE and bool(self.anthropic_api_key),
+                 llama_cpp_available   = LLAMA_CPP_AVAILABLE,
+                 provider_priority     = settings.LLM_PROVIDER_PRIORITY,
                 )
 
 
@@ -148,6 +179,9 @@ class LLMManager:
         """
         Check if Ollama server is available
         """
+        if not settings.ENABLE_OLLAMA:
+            return False
+            
         try:
             response  = requests.get(f"{self.ollama_base_url}/api/tags", timeout = 30)
             available = (response.status_code == 200)
@@ -165,20 +199,35 @@ class LLMManager:
     
     def get_available_providers(self) -> List[LLMProvider]:
         """
-        Get list of available providers
+        Get list of available providers based on settings and environment
         """
         available = list()
         
-        if self._check_ollama_available():
+        # Check each provider based on settings
+        if (settings.ENABLE_OLLAMA and self._check_ollama_available()):
             available.append(LLMProvider.OLLAMA)
         
-        if OPENAI_AVAILABLE and self.openai_api_key:
+        if (settings.ENABLE_OPENAI and OPENAI_AVAILABLE and self.openai_api_key):
             available.append(LLMProvider.OPENAI)
         
-        if ANTHROPIC_AVAILABLE and self.anthropic_api_key:
+        if (settings.ENABLE_ANTHROPIC and ANTHROPIC_AVAILABLE and self.anthropic_api_key):
             available.append(LLMProvider.ANTHROPIC)
         
-        log_info("Available LLM providers", providers = [p.value for p in available])
+        if (settings.ENABLE_LLAMA_CPP and LLAMA_CPP_AVAILABLE):
+            available.append(LLMProvider.LLAMA_CPP)
+        
+        if (settings.ENABLE_HF_INFERENCE and self.hf_client):
+            available.append(LLMProvider.HF_INFER)
+        
+        # Sort by priority from settings
+        priority_order = settings.LLM_PROVIDER_PRIORITY
+
+        available.sort(key = lambda p: priority_order.index(p.value) if p.value in priority_order else len(priority_order))
+        
+        log_info("Available LLM providers", 
+                 providers = [p.value for p in available],
+                 priority  = priority_order,
+                )
         
         return available
     
@@ -188,8 +237,11 @@ class LLMManager:
         """
         Check if rate limit allows request (simple token bucket)
         """
-        now         = time.time()
-        time_passed = now - self._rate_limit_last_refill
+        if not settings.RATE_LIMIT_ENABLED:
+            return True
+            
+        now                          = time.time()
+        time_passed                  = now - self._rate_limit_last_refill
         
         # Refill tokens
         self._rate_limit_tokens      = min(settings.RATE_LIMIT_REQUESTS, self._rate_limit_tokens + time_passed * self._rate_limit_refill_rate)
@@ -197,7 +249,6 @@ class LLMManager:
         
         if (self._rate_limit_tokens >= 1):
             self._rate_limit_tokens -= 1
-
             return True
         
         log_info("Rate limit hit, waiting...", tokens_remaining = self._rate_limit_tokens)
@@ -216,10 +267,10 @@ class LLMManager:
     # UNIFIED COMPLETION METHOD
     @ContractAnalyzerLogger.log_execution_time("llm_complete")
     def complete(self, prompt: str, provider: Optional[LLMProvider] = None, model: Optional[str] = None, temperature: Optional[float] = None, 
-                 max_tokens: Optional[int] = None, system_prompt: Optional[str] = None, json_mode: bool = False, retry_on_error: bool = True, 
-                 fallback_providers: Optional[List[LLMProvider]] = None) -> LLMResponse:
+                 max_tokens: Optional[int] = None, system_prompt: Optional[str] = None, json_mode: bool = False, retry_on_error: bool = True,
+                 max_retries: int = 3) -> LLMResponse:
         """
-        Unified completion method for all providers
+        Unified completion method for all providers with automatic fallback
         
         Arguments:
         ----------
@@ -229,9 +280,9 @@ class LLMManager:
             
             model              : Model name (provider-specific)
             
-            temperature        : Sampling temperature (0.0-1.0, default from settings/config)
+            temperature        : Sampling temperature (0.0-1.0, default from settings)
             
-            max_tokens         : Maximum tokens to generate (default from config)
+            max_tokens         : Maximum tokens to generate (default from settings)
             
             system_prompt      : System prompt (if supported)
             
@@ -239,15 +290,16 @@ class LLMManager:
             
             retry_on_error     : Retry with fallback providers on error
             
-            fallback_providers : List of fallback providers to try
+            max_retries        : Maximum number of retry attempts
         
         Returns:
         --------
             { LLMResponse }    : LLMResponse object
         """
-        provider    = provider or self.default_provider
-        temperature = temperature or self.ollama_temperature
-        max_tokens  = max_tokens or self.generation_config["max_tokens"]
+        provider      = provider or self.default_provider
+        temperature   = temperature or settings.LLM_TEMPERATURE
+        max_tokens    = max_tokens or settings.LLM_MAX_TOKENS
+        system_prompt = system_prompt or settings.LLM_SYSTEM_PROMPT
         
         log_info("LLM completion request",
                  provider      = provider.value,
@@ -260,74 +312,116 @@ class LLMManager:
         # Rate limiting
         self._wait_for_rate_limit()
         
-        # Try primary provider
-        try:
-            if (provider == LLMProvider.OLLAMA):
-                return self._complete_ollama(prompt        = prompt,
-                                             model         = model, 
-                                             temperature   = temperature,
-                                             max_tokens    = max_tokens, 
-                                             system_prompt = system_prompt, 
-                                             json_mode     = json_mode,
-                                            )
+        # Try primary provider with retries
+        for attempt in range(max_retries if retry_on_error else 1):
+            try:
+                if (provider == LLMProvider.OLLAMA):
+                    return self._complete_ollama(prompt        = prompt,
+                                                 model         = model, 
+                                                 temperature   = temperature,
+                                                 max_tokens    = max_tokens, 
+                                                 system_prompt = system_prompt, 
+                                                 json_mode     = json_mode,
+                                                )
 
-            elif (provider == LLMProvider.OPENAI):
-                return self._complete_openai(prompt        = prompt, 
-                                             model         = model, 
-                                             temperature   = temperature, 
-                                             max_tokens    = max_tokens, 
-                                             system_prompt = system_prompt, 
-                                             json_mode     = json_mode,
-                                            )
+                elif (provider == LLMProvider.OPENAI):
+                    return self._complete_openai(prompt        = prompt, 
+                                                 model         = model, 
+                                                 temperature   = temperature, 
+                                                 max_tokens    = max_tokens, 
+                                                 system_prompt = system_prompt, 
+                                                 json_mode     = json_mode,
+                                                )
 
-            elif (provider == LLMProvider.ANTHROPIC):
-                return self._complete_anthropic(prompt        = prompt, 
-                                                model         = model, 
-                                                temperature   = temperature, 
-                                                max_tokens    = max_tokens, 
-                                                system_prompt = system_prompt,
-                                               )
+                elif (provider == LLMProvider.ANTHROPIC):
+                    return self._complete_anthropic(prompt        = prompt, 
+                                                    model         = model, 
+                                                    temperature   = temperature, 
+                                                    max_tokens    = max_tokens, 
+                                                    system_prompt = system_prompt,
+                                                   )
 
-            else:
-                raise ValueError(f"Unsupported provider: {provider}")
-        
-        except Exception as e:
-            log_error(e, context = {"component" : "LLMManager", "operation" : "complete", "provider" : provider.value})
+                elif (provider == LLMProvider.LLAMA_CPP):
+                    return self._complete_llama_cpp(prompt        = prompt,
+                                                    model         = model,
+                                                    temperature   = temperature,
+                                                    max_tokens    = max_tokens,
+                                                    system_prompt = system_prompt,
+                                                    json_mode     = json_mode,
+                                                   )
+
+                elif (provider == LLMProvider.HF_INFER):
+                    return self._complete_hf_inference(prompt        = prompt,
+                                                       model         = model,
+                                                       temperature   = temperature,
+                                                       max_tokens    = max_tokens,
+                                                       system_prompt = system_prompt,
+                                                      )
+
+                else:
+                    raise ValueError(f"Unsupported provider: {provider}")
             
-            # Try fallback providers
-            if (retry_on_error and fallback_providers):
-                log_info("Trying fallback providers", fallbacks = [p.value for p in fallback_providers])
+            except Exception as e:
+                log_error(e, context = {"component" : "LLMManager", 
+                                        "operation" : "complete", 
+                                        "provider"  : provider.value,
+                                        "attempt"   : attempt + 1,
+                                       }
+                         )
                 
-                for fallback_provider in fallback_providers:
-                    if (fallback_provider == provider):
-                        continue
+                if (attempt < max_retries - 1):
+                    log_info(f"Retrying attempt {attempt + 2}/{max_retries}")
+                    # Exponential backoff
+                    time.sleep(1 * (attempt + 1))  
+                    continue
+                
+                # If retries exhausted, try fallback providers
+                if retry_on_error:
+                    available_providers = self.get_available_providers()
+                    # Remove current provider from fallback list
+                    fallback_providers  = [p for p in available_providers if p != provider]
                     
-                    try:
-                        log_info(f"Attempting fallback to {fallback_provider.value}")
-                        # Prevent infinite recursion
-                        return self.complete(prompt         = prompt,
-                                             provider       = fallback_provider,
-                                             model          = model,
-                                             temperature    = temperature,
-                                             max_tokens     = max_tokens,
-                                             system_prompt  = system_prompt,
-                                             json_mode      = json_mode,
-                                             retry_on_error = False,  
-                                            )
+                    for fallback_provider in fallback_providers:
+                        try:
+                            log_info(f"Attempting fallback to {fallback_provider.value}")
+                            # Prevent infinite recursion by disabling further fallbacks
+                            return self.complete(prompt         = prompt,
+                                                 provider       = fallback_provider,
+                                                 model          = model,
+                                                 temperature    = temperature,
+                                                 max_tokens     = max_tokens,
+                                                 system_prompt  = system_prompt,
+                                                 json_mode      = json_mode,
+                                                 retry_on_error = False,  # No more fallbacks
+                                                )
 
-                    except Exception as fallback_error:
-                        log_error(fallback_error, context = {"component" : "LLMManager", "operation" : "fallback_complete", "provider" : fallback_provider.value})
-                        continue
-            
-            # All attempts failed
-            return LLMResponse(text            = "",
-                               provider        = provider.value,
-                               model           = model or "unknown",
-                               tokens_used     = 0,
-                               latency_seconds = 0.0,
-                               success         = False,
-                               error_message   = str(e),
-                              )
+                        except Exception as fallback_error:
+                            log_error(fallback_error, context = {"component" : "LLMManager", 
+                                                                 "operation" : "fallback_complete", 
+                                                                 "provider"  : fallback_provider.value,
+                                                                }
+                                     )
+                            continue
+                
+                # All attempts failed
+                return LLMResponse(text            = "",
+                                   provider        = provider.value,
+                                   model           = model or "unknown",
+                                   tokens_used     = 0,
+                                   latency_seconds = 0.0,
+                                   success         = False,
+                                   error_message   = str(e),
+                                  )
+        
+        # Should never reach here
+        return LLMResponse(text            = "",
+                           provider        = provider.value,
+                           model           = model or "unknown",
+                           tokens_used     = 0,
+                           latency_seconds = 0.0,
+                           success         = False,
+                           error_message   = "Unknown error",
+                          )
 
 
     # OLLAMA Provider
@@ -335,6 +429,9 @@ class LLMManager:
         """
         Complete using local Ollama
         """
+        if not settings.ENABLE_OLLAMA:
+            raise ValueError("Ollama is disabled in settings")
+            
         start_time  = time.time()
         model       = model or self.ollama_model
         
@@ -359,7 +456,11 @@ class LLMManager:
                  json_mode = json_mode,
                 )
         
-        response       = requests.post(f"{self.ollama_base_url}/api/generate", json = payload, timeout = self.ollama_timeout)
+        response       = requests.post(f"{self.ollama_base_url}/api/generate", 
+                                       json    = payload, 
+                                       timeout = self.ollama_timeout,
+                                      )
+
         response.raise_for_status()
         
         result         = response.json()
@@ -391,11 +492,14 @@ class LLMManager:
         """
         Complete using OpenAI API
         """
+        if not settings.ENABLE_OPENAI:
+            raise ValueError("OpenAI is disabled in settings")
+            
         if not OPENAI_AVAILABLE or not self.openai_api_key:
             raise ValueError("OpenAI not available. Install with: pip install openai")
         
         start_time = time.time()
-        model      = model or "gpt-3.5-turbo"
+        model      = model or settings.OPENAI_MODEL
         
         # Construct messages
         messages   = list()
@@ -443,11 +547,14 @@ class LLMManager:
         """
         Complete using Anthropic (Claude) API
         """
+        if not settings.ENABLE_ANTHROPIC:
+            raise ValueError("Anthropic is disabled in settings")
+            
         if not ANTHROPIC_AVAILABLE or not self.anthropic_client:
             raise ValueError("Anthropic not available. Install with: pip install anthropic")
         
-        start_time = time.time()
-        model      = model or "claude-3-sonnet-20240229"
+        start_time     = time.time()
+        model          = model or settings.ANTHROPIC_MODEL
         
         log_info("Calling Anthropic API", model = model)
         
@@ -455,7 +562,7 @@ class LLMManager:
         message        = self.anthropic_client.messages.create(model       = model,
                                                                max_tokens  = max_tokens,
                                                                temperature = temperature,
-                                                               system      = system_prompt or "",
+                                                               system      = system_prompt or settings.LLM_SYSTEM_PROMPT,
                                                                messages    = [{"role": "user", "content": prompt}],
                                                               )
         
@@ -472,6 +579,186 @@ class LLMManager:
                            latency_seconds = latency,
                            success         = True,
                            raw_response    = message.dict(),
+                          )
+    
+
+    # Llama.cpp Provider
+    def _complete_llama_cpp(self, prompt: str, model: Optional[str], temperature: float, max_tokens: int, system_prompt: Optional[str], json_mode: bool) -> LLMResponse:
+        """
+        Complete using Llama.cpp (GGUF models)
+        """
+        if not settings.ENABLE_LLAMA_CPP:
+            raise ValueError("Llama.cpp is disabled in settings")
+            
+        if not LLAMA_CPP_AVAILABLE:
+            raise ValueError("llama-cpp-python not installed. Install with: pip install llama-cpp-python")
+        
+        start_time    = time.time()
+        
+        # Lazy load the model
+        with self.llama_cpp_lock:
+            if self.llama_cpp_model is None:
+                self._load_llama_cpp_model()
+        
+        # Construct full prompt
+        system_prompt  = system_prompt or settings.LLM_SYSTEM_PROMPT
+
+        full_prompt    = f"""
+                            {system_prompt}
+
+                            {prompt}
+
+                            Response:
+                         """
+        
+        log_info("Calling Llama.cpp",
+                 model_path = str(settings.LLAMA_CPP_MODEL_PATH),
+                 n_ctx      = settings.LLAMA_CPP_N_CTX,
+                 json_mode  = json_mode,
+                )
+        
+        # Generate response
+        response       = self.llama_cpp_model(prompt         = full_prompt,
+                                              max_tokens     = max_tokens,
+                                              temperature    = temperature,
+                                              top_p          = settings.LLM_TOP_P,
+                                              repeat_penalty = settings.LLM_REPEAT_PENALTY,
+                                              stop           = ["\n\n", "###", "Human:", "Assistant:", "</s>"],
+                                              echo           = False,
+                                             )
+        
+        generated_text = response['choices'][0]['text'].strip()
+        latency        = time.time() - start_time
+        
+        # Rough token estimation
+        tokens_used    = len(full_prompt.split()) + len(generated_text.split())
+        
+        log_info("Llama.cpp completion successful",
+                 tokens_used     = tokens_used,
+                 latency_seconds = round(latency, 3),
+                )
+        
+        return LLMResponse(text            = generated_text,
+                           provider        = "llama_cpp",
+                           model           = str(settings.LLAMA_CPP_MODEL_PATH),
+                           tokens_used     = tokens_used,
+                           latency_seconds = latency,
+                           success         = True,
+                           raw_response    = response,
+                          )
+    
+
+    def _load_llama_cpp_model(self):
+        """
+        Lazy load the Llama.cpp model
+        """
+        log_info("Loading Llama.cpp model", model_path=str(settings.LLAMA_CPP_MODEL_PATH))
+        
+        # Ensure model exists, download if needed
+        if( not settings.LLAMA_CPP_MODEL_PATH.exists()):
+            self._download_llama_cpp_model()
+        
+        # Load model with appropriate GPU layers / CPU loading
+        n_gpu_layers         = settings.LLAMA_CPP_N_GPU_LAYERS
+        
+        if settings.IS_HUGGINGFACE_SPACE:
+            n_gpu_layers = 0 
+        
+        self.llama_cpp_model = Llama(model_path   = str(settings.LLAMA_CPP_MODEL_PATH),
+                                     n_ctx        = settings.LLAMA_CPP_N_CTX,
+                                     n_gpu_layers = n_gpu_layers,  
+                                     n_batch      = settings.LLAMA_CPP_N_BATCH,
+                                     n_threads    = settings.LLAMA_CPP_N_THREADS,
+                                     verbose      = False,
+                                    )
+
+        log_info("Llama.cpp model loaded successfully")
+    
+
+    def _download_llama_cpp_model(self):
+        """
+        Download GGUF model from HuggingFace Hub
+        """
+        log_info("Downloading GGUF model", repo = settings.LLAMA_CPP_MODEL_REPO, filename = settings.LLAMA_CPP_MODEL_FILE)
+        
+        try:
+            from huggingface_hub import hf_hub_download
+            
+            # Ensure cache directory exists
+            settings.MODEL_CACHE_DIR.mkdir(parents = True, exist_ok = True)
+            
+            # Download the model
+            downloaded_path = hf_hub_download(repo_id         = settings.LLAMA_CPP_MODEL_REPO,
+                                              filename        = settings.LLAMA_CPP_MODEL_FILE,
+                                              cache_dir       = str(settings.MODEL_CACHE_DIR),
+                                              force_download  = False,
+                                              resume_download = True,
+                                             )
+            
+            # Create symlink to expected path
+            if (downloaded_path != str(settings.LLAMA_CPP_MODEL_PATH)):
+                import shutil
+                shutil.copy(downloaded_path, settings.LLAMA_CPP_MODEL_PATH)
+            
+            log_info("GGUF model downloaded successfully", path = str(settings.LLAMA_CPP_MODEL_PATH))
+            
+        except Exception as e:
+            log_error(e, context = {"component" : "LLMManager",
+                                    "operation" : "download_llama_cpp_model",
+                                    "repo"      : settings.LLAMA_CPP_MODEL_REPO,
+                                    "filename"  : settings.LLAMA_CPP_MODEL_FILE,
+                                   }
+                     )
+            raise
+    
+
+    # HuggingFace Inference Provider
+    def _complete_hf_inference(self, prompt: str, model: Optional[str], temperature: float, max_tokens: int, system_prompt: Optional[str]) -> LLMResponse:
+        """
+        Complete using HuggingFace Inference API
+        """
+        if not settings.ENABLE_HF_INFERENCE or not self.hf_client:
+            raise ValueError("HF Inference is disabled or not configured")
+        
+        start_time     = time.time()
+        
+        # Construct full prompt
+        full_prompt    = f"""
+                             {system_prompt or settings.LLM_SYSTEM_PROMPT}
+
+                             {prompt}
+
+                             Response:
+                          """
+        
+        log_info("Calling HuggingFace Inference API")
+        
+        # Generate response
+        response       = self.hf_client.text_generation(full_prompt,
+                                                        max_new_tokens   = max_tokens,
+                                                        temperature      = temperature,
+                                                        do_sample        = True,
+                                                        return_full_text = False,
+                                                       )
+        
+        generated_text = response
+        latency        = time.time() - start_time
+        
+        # Rough token estimation
+        tokens_used    = len(full_prompt.split()) + len(generated_text.split())
+        
+        log_info("HF Inference completion successful",
+                 tokens_used     = tokens_used,
+                 latency_seconds = round(latency, 3),
+                )
+        
+        return LLMResponse(text            = generated_text,
+                           provider        = "hf_inference",
+                           model           = settings.HF_MODEL_ID or "hf_inference",
+                           tokens_used     = tokens_used,
+                           latency_seconds = latency,
+                           success         = True,
+                           raw_response    = {"text": generated_text},
                           )
     
 
@@ -526,98 +813,6 @@ class LLMManager:
             raise ValueError(f"Failed to parse JSON response: {e}")
     
 
-    def batch_complete(self, prompts: List[str], provider: Optional[LLMProvider] = None, **kwargs) -> List[LLMResponse]:
-        """
-        Complete multiple prompts (sequential for now)
-        
-        Arguments:
-        ----------
-            prompts   : List of prompts
-            
-            provider  : LLM provider
-            
-            **kwargs  : Additional arguments for complete()
-        
-        Returns:
-        --------
-            { list }  : List of LLMResponse objects
-        """
-        log_info("Batch completion started", batch_size=len(prompts))
-        
-        responses = list()
-
-        for i, prompt in enumerate(prompts):
-            log_info(f"Processing prompt {i+1}/{len(prompts)}")
-
-            response = self.complete(prompt   = prompt, 
-                                     provider = provider, 
-                                     **kwargs,
-                                    )
-
-            responses.append(response)
-        
-        successful = sum(1 for r in responses if r.success)
-        
-        log_info("Batch completion finished",
-                 total       = len(prompts),
-                 successful  = successful,
-                 failed      = len(prompts) - successful,
-                )
-        
-        return responses
-    
-
-    # OLLAMA-Specific Methods
-    def list_ollama_models(self) -> List[str]:
-        """
-        List available local Ollama models
-        """
-        try:
-            response = requests.get(f"{self.ollama_base_url}/api/tags", timeout = 30)
-            response.raise_for_status()
-            
-            models   = [model['name'] for model in response.json().get('models', [])]
-
-            log_info("Ollama models listed", count = len(models), models = models)
-
-            return models
-            
-        except Exception as e:
-            log_error(e, context = {"component" : "LLMManager", "operation" : "list_ollama_models"})
-            return []
-
-    
-    def pull_ollama_model(self, model_name: str) -> bool:
-        """
-        Pull/download an Ollama model
-        """
-        try:
-            log_info(f"Pulling Ollama model: {model_name}")
-            
-            response = requests.post(f"{self.ollama_base_url}/api/pull",
-                                     json    = {"name": model_name},
-                                     stream  = True,
-                                     timeout = 600,  # 10 minutes for download
-                                    )
-
-            response.raise_for_status()
-            
-            # Stream response to track progress
-            for line in response.iter_lines():
-                if line:
-                    data = json.loads(line)
-                    
-                    if ('status' in data):
-                        log_info(f"Pull status: {data['status']}")
-            
-            log_info(f"Model pulled successfully: {model_name}")
-            return True
-            
-        except Exception as e:
-            log_error(e, context = {"component" : "LLMManager", "operation" : "pull_ollama_model", "model" : model_name})
-            return False
-    
-
     # Utility Methods
     def get_provider_info(self, provider: LLMProvider) -> Dict[str, Any]:
         """
@@ -629,29 +824,32 @@ class LLMManager:
                }
         
         if (provider == LLMProvider.OLLAMA):
-            info["available"] = self._check_ollama_available()
+            info["available"] = settings.ENABLE_OLLAMA and self._check_ollama_available()
 
             if info["available"]:
                 info["models"]   = self.list_ollama_models()
                 info["base_url"] = self.ollama_base_url
         
         elif (provider == LLMProvider.OPENAI):
-            info["available"] = OPENAI_AVAILABLE and bool(self.openai_api_key)
+            info["available"] = settings.ENABLE_OPENAI and OPENAI_AVAILABLE and bool(self.openai_api_key)
 
             if info["available"]:
-                info["models"] = ["gpt-3.5-turbo", 
-                                  "gpt-4", 
-                                  "gpt-4-turbo-preview",
-                                 ]
+                info["models"] = [settings.OPENAI_MODEL, "gpt-4", "gpt-4-turbo-preview"]
         
         elif (provider == LLMProvider.ANTHROPIC):
-            info["available"] = ANTHROPIC_AVAILABLE and bool(self.anthropic_client)
+            info["available"] = settings.ENABLE_ANTHROPIC and ANTHROPIC_AVAILABLE and bool(self.anthropic_client)
 
             if info["available"]:
-                info["models"] = ["claude-3-opus-20240229",
-                                  "claude-3-sonnet-20240229",
-                                  "claude-3-haiku-20240307",
-                                 ]
+                info["models"] = [settings.ANTHROPIC_MODEL, "claude-3-sonnet-20240229", "claude-3-opus-20240229"]
+        
+        elif (provider == LLMProvider.LLAMA_CPP):
+            info["available"]  = settings.ENABLE_LLAMA_CPP and LLAMA_CPP_AVAILABLE
+            info["model_path"] = str(settings.LLAMA_CPP_MODEL_PATH) if settings.LLAMA_CPP_MODEL_PATH else None
+            info["model_repo"] = settings.LLAMA_CPP_MODEL_REPO
+        
+        elif (provider == LLMProvider.HF_INFER):
+            info["available"] = settings.ENABLE_HF_INFERENCE and self.hf_client is not None
+            info["model_id"]  = settings.HF_MODEL_ID
         
         return info
     
@@ -674,26 +872,26 @@ class LLMManager:
         --------
                 { float }     : Estimated cost in USD
         """
-        # Pricing per 1K tokens (as of 2025)
-        pricing = {"openai"    : {"gpt-3.5-turbo"       : {"prompt": 0.0015, "completion": 0.002},
-                                  "gpt-4"               : {"prompt": 0.03, "completion": 0.06},
-                                  "gpt-4-turbo-preview" : {"prompt": 0.01, "completion": 0.03},
-                                 },
-                   "anthropic" : {"claude-3-opus-20240229"   : {"prompt": 0.015, "completion": 0.075},
-                                  "claude-3-sonnet-20240229" : {"prompt": 0.003, "completion": 0.015},
-                                  "claude-3-haiku-20240307"  : {"prompt": 0.00025, "completion": 0.00125},
-                                 }
-                  }
+        # Local models (Ollama, Llama.cpp) are free
+        if provider in [LLMProvider.OLLAMA, LLMProvider.LLAMA_CPP, LLMProvider.HF_INFER]:
+            return 0.0
         
-        if (provider == LLMProvider.OLLAMA):
-            # Local models are free
-            return 0.0  
+        # Pricing per 1K tokens (as of 2025)
+        pricing          = {"openai"    : {"gpt-3.5-turbo"       : {"prompt": 0.0015, "completion": 0.002},
+                                           "gpt-4"               : {"prompt": 0.03, "completion": 0.06},
+                                           "gpt-4-turbo-preview" : {"prompt": 0.01, "completion": 0.03},
+                                          },
+                            "anthropic" : {"claude-3-opus-20240229"   : {"prompt": 0.015, "completion": 0.075},
+                                           "claude-3-sonnet-20240229" : {"prompt": 0.003, "completion": 0.015},
+                                           "claude-3-haiku-20240307"  : {"prompt": 0.00025, "completion": 0.00125},
+                                          }
+                           }
         
         provider_pricing = pricing.get(provider.value, {}).get(model)
         
         if not provider_pricing:
             return 0.0
         
-        cost = ((prompt_tokens / 1000) * provider_pricing["prompt"] + (completion_tokens / 1000) * provider_pricing["completion"])
+        cost             = ((prompt_tokens / 1000) * provider_pricing["prompt"] + (completion_tokens / 1000) * provider_pricing["completion"])
         
         return round(cost, 6)

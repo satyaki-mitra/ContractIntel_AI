@@ -37,6 +37,10 @@ requests>=2.31.0
 openai>=1.0.0  
 anthropic>=0.5.0  
 
+# For Huggingface Spaces
+llama-cpp-python>=0.2.20  # For CPU-only GGUF models on HF Spaces
+huggingface-hub>=0.19.0   # For downloading GGUF models
+
 # Text Processing Utilities
 chardet>=5.0.0  
 langdetect>=1.0.9  
@@ -57,3 +61,6 @@ orjson>=3.9.0
 
 # For spaCy performance
 blis>=0.7.10 
+
+# Additional for spaCy model
+spacy-transformers>=1.2.0

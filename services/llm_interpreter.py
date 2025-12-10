@@ -36,6 +36,7 @@ class LLMClauseInterpreter:
         Arguments:
         ----------
             llm_manager      { LLMManager }  : LLMManager instance
+
             default_provider { LLMProvider } : Default LLM provider to use
         """
         self.llm_manager      = llm_manager
@@ -225,7 +226,7 @@ class LLMClauseInterpreter:
                                                                              provider           = provider,
                                                                              temperature        = 0.3,
                                                                              max_tokens         = 1200,
-                                                                             fallback_providers = [LLMProvider.OPENAI, LLMProvider.ANTHROPIC],
+                                                                             fallback_providers = [LLMProvider.LLAMA_CPP, LLMProvider.OPENAI, LLMProvider.ANTHROPIC],
                                                                             )
             
             # Calculate negotiation priority

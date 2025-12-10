@@ -22,11 +22,20 @@ license: mit
 [![Legal-BERT](https://img.shields.io/badge/Legal--BERT-nlpaueb/legal--bert--base--uncased-orange)](https://huggingface.co/nlpaueb/legal-bert-base-uncased)
 [![Sentence-BERT](https://img.shields.io/badge/Sentence--BERT-all--MiniLM--L6--v2-lightgrey)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
 [![Ollama](https://img.shields.io/badge/Ollama-llama3:8b-7c3aed)](https://ollama.ai/)
+[![Llama.cpp](https://img.shields.io/badge/Llama.cpp-GGUF_Models-4B5563)](https://github.com/ggerganov/llama.cpp)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed)](https://docker.com/)
 [![spaCy](https://img.shields.io/badge/spaCy-3.7+-09a3d5)](https://spacy.io/)
 
 > **Democratizing Legal Intelligence Through AI**  
 > Comprehensive contract risk analysis using an integrated pipeline with Legal-BERT, multi-model NLP, and LLM interpretation
+
+> **⚠️ Important Disclaimer**: This tool provides AI-assisted contract analysis and is not a substitute for professional legal advice. Always consult a qualified attorney for legal matters. The AI may produce inaccurate or incomplete analyses.
+
+
+> **🔐 Data Privacy**: Choose your deployment carefully:
+> - **Local deployment** (Ollama/Llama.cpp) = Maximum privacy
+> - **Cloud deployment** = Files processed on external servers
+> - **API providers** (OpenAI/Anthropic) = Contract text sent to third parties
 
 </div>
 
@@ -39,8 +48,8 @@ The AI Contract Risk Analyzer is a production-grade legal document analysis plat
 - 📄 **Multi-Format Support**: PDF, DOCX, TXT document processing
 - 🔍 **9 Contract Categories**: Employment, NDA, Lease, Service agreements, etc.
 - ⚡ **Sub-60s Analysis**: Real-time risk scoring and clause extraction via pre-loaded models
-- 🔒 **Privacy-First**: Ephemeral processing, zero data retention
-- 🌐 **LLM Integration**: Ollama (local), OpenAI, Anthropic support with fallback
+- 🛡️ **Privacy-Flexible**: Choose between 100% local (Ollama), local models on cloud (llama.cpp), or external APIs
+- 🌐 **Multi-Provider LLM**: Ollama (100% local), llama.cpp (local GGUF models), OpenAI, Anthropic with fallback
 - 📊 **Comprehensive Reports**: Executive summaries, negotiation playbooks, market comparisons, and downloadable PDFs
 - 🔄 **Integrated Pipeline**: A single orchestrator (`PreloadedAnalysisService`) ensures consistent context propagation from classification through to final reporting
 
@@ -108,7 +117,8 @@ This diagram illustrates the core components and their interactions, highlightin
 │  └─────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ LLM Manager (Multi-Provider)                        │   │
-│  │ - Ollama (Local, Free)                              │   │
+│  │ - Ollama (Local, Free)                              |   |
+|  | - Llama.cpp (GGUF Models, CPU/GPU)                  │   │
 │  │ - OpenAI (GPT-3.5/4)                                │   │
 │  │ - Anthropic (Claude)                                │   │
 │  │ - Auto-Fallback & Rate Limiting                     │   │
@@ -243,7 +253,7 @@ graph LR
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation Options
 
 ### Prerequisites
 
@@ -253,6 +263,38 @@ Python: 3.10 or higher
 RAM: 16GB recommended (8GB minimum)
 Storage: 10GB for models
 GPU: Optional (3x speedup with NVIDIA GPU + CUDA 11.8+)
+```
+
+
+### Installation Options
+
+Choose based on your privacy and hardware requirements:
+
+#### 🔒 Option A: Maximum Privacy (Local Ollama)
+```bash
+# For complete local processing
+pip install -r requirements.txt
+ollama serve
+ollama pull llama3:8b
+```
+#### 💻 Option B: Good Privacy + CPU Support (Local Llama.cpp)
+```bash
+# For systems without GPU or Ollama
+pip install llama-cpp-python huggingface-hub
+# Models downloaded automatically on first run
+```
+
+#### ☁️ Option C: Free Cloud (HuggingFace Spaces)
+```bash
+# No installation needed
+# Visit: https://huggingface.co/spaces/[your-space]
+# Models automatically downloaded, runs on HF infrastructure
+```
+
+#### 🌐 Option D: External APIs (Best Quality)
+```bash
+# Add API keys to .env for OpenAI/Anthropic
+# Models run on external servers
 ```
 
 ### Quick Install
@@ -333,6 +375,16 @@ python app.py
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
+
+### Deployment Options Summary
+
+| Option | Privacy | Setup | Best For |
+|--------|---------|-------|----------|
+| **Local Ollama** | 🔒 Maximum | Medium | Sensitive contracts |
+| **Local Llama.cpp** | 🔒 High | Easy | General use, CPU-only |
+| **HF Spaces** | 🟡 Medium | Trivial | Demos, testing |
+| **External APIs** | 🟡 Medium | Easy | Non-sensitive, best quality |
+
 ---
 
 ## 🔧 Technical Details
@@ -346,9 +398,16 @@ Legal-BERT: nlpaueb/legal-bert-base-uncased  # 110M params, 768-dim
 Sentence-BERT: all-MiniLM-L6-v2              # 22M params, 384-dim
 
 # LLM Integration
-Ollama: llama3:8b (local, free)
+Ollama: llama3:8b (100% local, maximum privacy)
+Llama.cpp: GGUF models (local models on CPU/GPU)
 OpenAI: gpt-3.5-turbo, gpt-4
 Anthropic: claude-3-sonnet, claude-3-opus
+
+
+# Privacy Levels:
+1. Ollama → 100% local, no data leaves
+2. Llama.cpp → Models run locally on your hardware
+3. OpenAI/Anthropic → Data sent to external servers
 
 # Deep Learning Framework
 PyTorch: 2.1+
@@ -494,7 +553,42 @@ Sentence-BERT Model: ~100MB
 LLM Manager: ~50MB
 Total (Idle): ~600MB
 Total (Peak): ~1.2GB
+
 ```
+
+---
+
+## 🔒 Privacy & Data Safety
+
+### Data Handling by Deployment Type
+
+| Deployment | Privacy Level | Where Models Run | Where Files Go | Best For |
+|------------|---------------|------------------|----------------|----------|
+| **Local Ollama** | 🔒 Maximum | Your machine | Your machine only | Sensitive NDAs, employment |
+| **Local Llama.cpp** | 🔒 High | Your machine | Your machine only | General contracts, CPU-only |
+| **HuggingFace Spaces** | 🟡 Medium | HF servers | Temporary HF storage | Testing, public demos |
+| **External APIs** | 🟡 Medium | OpenAI/Anthropic | Sent to 3rd parties | Non-sensitive contracts |
+
+### Configuration for Different Privacy Needs
+
+**For Maximum Privacy (Legal Firms, Sensitive Data):**
+```env
+ENABLE_OLLAMA=true      # 100% local
+ENABLE_LLAMA_CPP=true   # Local GGUF models
+ENABLE_OPENAI=false     # No external data
+ENABLE_ANTHROPIC=false  # No external data
+```
+
+**For Public Demos (HuggingFace Spaces):**
+
+```env
+ENABLE_OLLAMA=false     # Not available on HF
+ENABLE_LLAMA_CPP=true   # Local models on HF servers
+ENABLE_OPENAI=false     # Optional if API key added
+ENABLE_ANTHROPIC=false  # Optional if API key added
+```
+
+> ⚠️ Important: No deployment option provides attorney-client privilege. Always consult a lawyer for legal advice.
 
 ---
 

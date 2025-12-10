@@ -503,7 +503,7 @@ class NegotiationEngine:
                                                  provider           = provider,
                                                  temperature        = 0.3,
                                                  max_tokens         = 2000,
-                                                 fallback_providers = [LLMProvider.OPENAI],
+                                                 fallback_providers = [ LLMProvider.LLAMA_CPP, LLMProvider.OPENAI, LLMProvider.ANTHROPIC],
                                                  retry_on_error     = True,
                                                 )
             if response.success:

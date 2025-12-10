@@ -9,10 +9,6 @@ from typing import Union
 from pathlib import Path
 from docx import Document
 from typing import Optional
-
-# Add parent directory to path for imports
-#sys.path.append(str(Path(__file__).parent.parent))
-
 from config.settings import settings
 
 
