@@ -49,7 +49,8 @@ The ContractIntel AI is a MVP-grade legal document analysis platform that levera
 - 📊 **Comprehensive Reports**: Executive summaries, negotiation playbooks, market comparisons, and downloadable PDFs
 - 🔄 **Integrated Pipeline**: A single orchestrator (`PreloadedAnalysisService`) ensures consistent context propagation from classification through to final reporting
 
-### **Live Deployment Link:** [Legal Document Risk Analysis Platform](https://huggingface.co/spaces/satyaki-mitra/ContractIntel_AI)
+
+**Live Deployment Link:** [Legal Document Risk Analysis Platform](https://huggingface.co/spaces/satyaki-mitra/ContractIntel_AI)
 
 ---
 
