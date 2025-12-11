@@ -78,49 +78,49 @@ This diagram illustrates the core components and their interactions, highlightin
 
 ```mermaid
 flowchart TD
-    subgraph A[Client Layer]
+    subgraph A["Client Layer"]
         A1[Browser]
         A2[Mobile App]
         A3[CLI]
         A4[API Client]
     end
     
-    subgraph B[FastAPI Backend]
-        B1[Routes<br/>/analyze, /jobs/{id}, /validate, /health]
-        B2[Async Processing<br/>BackgroundTasks + Job Queue]
-        B3[Middleware<br/>CORS, Error Handling, Logging]
+    subgraph B["FastAPI Backend"]
+        B1["Routes<br/>/analyze, /jobs/{id}, /validate, /health"]
+        B2["Async Processing<br/>BackgroundTasks + Job Queue"]
+        B3["Middleware<br/>CORS, Error Handling, Logging"]
     end
     
-    subgraph C[Services Orchestration Layer]
-        C1[Classifier<br/>Legal-BERT]
-        C2[Clause Extractor]
-        C3[Risk Analyzer<br/>Multi-Factor]
-        C4[Term Analyzer]
-        C5[Protection Checker]
-        C6[Market Comparator]
-        C7[LLM Interpreter]
-        C8[Negotiation Engine]
+    subgraph C["Services Orchestration Layer"]
+        C1["Classifier<br/>Legal-BERT"]
+        C2["Clause Extractor"]
+        C3["Risk Analyzer<br/>Multi-Factor"]
+        C4["Term Analyzer"]
+        C5["Protection Checker"]
+        C6["Market Comparator"]
+        C7["LLM Interpreter"]
+        C8["Negotiation Engine"]
         
         C1 --> C2 --> C3
     end
     
-    subgraph D[Model Management Layer]
-        D1[Model Registry<br/>Singleton, Thread-Safe]
-        D2[LLM Manager<br/>Multi-Provider]
+    subgraph D["Model Management Layer"]
+        D1["Model Registry<br/>Singleton, Thread-Safe"]
+        D2["LLM Manager<br/>Multi-Provider"]
         
-        D1_sub[LRU Cache Eviction<br/>GPU/CPU Auto-Detection<br/>Lazy Loading]
-        D2_sub[Ollama Local, Free<br/>Llama.cpp GGUF Models<br/>OpenAI GPT-3.5/4<br/>Anthropic Claude]
+        D1_sub["LRU Cache Eviction<br/>GPU/CPU Auto-Detection<br/>Lazy Loading"]
+        D2_sub["Ollama Local, Free<br/>Llama.cpp GGUF Models<br/>OpenAI GPT-3.5/4<br/>Anthropic Claude"]
     end
     
-    subgraph E[AI Models Layer]
-        E1[Legal-BERT<br/>nlpaueb/legal-bert-base-uncased<br/>110M parameters]
-        E2[Sentence-BERT<br/>all-MiniLM-L6-v2<br/>22M parameters]
+    subgraph E["AI Models Layer"]
+        E1["Legal-BERT<br/>nlpaueb/legal-bert-base-uncased<br/>110M parameters"]
+        E2["Sentence-BERT<br/>all-MiniLM-L6-v2<br/>22M parameters"]
     end
     
-    A -- REST API --> B
-    B -- Data Flow --> C
-    C -- Model Requests --> D
-    D -- Model Loading --> E
+    A -- "REST API" --> B
+    B -- "Data Flow" --> C
+    C -- "Model Requests" --> D
+    D -- "Model Loading" --> E
     
     %% Styling for better readability
     classDef client fill:#e1f5fe,stroke:#01579b
