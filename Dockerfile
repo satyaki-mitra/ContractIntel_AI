@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpthread-stubs0-dev \
     && rm -rf /var/lib/apt/lists/*
 
+    # Optimize llama-cpp-python build for CPU only to reduce build time/memory usage
+ENV CMAKE_ARGS="-DLLAMA_CUBLAS=off"
+ENV FORCE_CMAKE=on
+
 COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
