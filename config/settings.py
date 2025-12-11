@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     LLAMA_CPP_ENABLED      : bool                                               = False  # Auto-enabled in HF Spaces
     LLAMA_CPP_MODEL_PATH   : Optional[Path]                                     = None   # Local path to GGUF model
     LLAMA_CPP_MODEL_REPO   : str                                                = "NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF"
-    LLAMA_CPP_MODEL_FILE   : str                                                = "Hermes-2-Pro-Llama-3-8B-GGUF.Q4_K_M.gguf"
+    LLAMA_CPP_MODEL_FILE   : str                                                = "Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
     LLAMA_CPP_N_CTX        : int                                                = 4096   # Context window
     LLAMA_CPP_N_GPU_LAYERS : int                                                = -1     # -1 = all layers on GPU
     LLAMA_CPP_N_BATCH      : int                                                = 512    # Batch size for prompt processing
