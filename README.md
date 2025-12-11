@@ -76,71 +76,65 @@ The ContractIntel AI is a MVP-grade legal document analysis platform that levera
 
 This diagram illustrates the core components and their interactions, highlighting the unified orchestration and the flow of context (specifically the `ContractType`) through the system.
 
+```mermaid
+flowchart TD
+    subgraph A[Client Layer]
+        A1[Browser]
+        A2[Mobile App]
+        A3[CLI]
+        A4[API Client]
+    end
+    
+    subgraph B[FastAPI Backend]
+        B1[Routes<br/>/analyze, /jobs/{id}, /validate, /health]
+        B2[Async Processing<br/>BackgroundTasks + Job Queue]
+        B3[Middleware<br/>CORS, Error Handling, Logging]
+    end
+    
+    subgraph C[Services Orchestration Layer]
+        C1[Classifier<br/>Legal-BERT]
+        C2[Clause Extractor]
+        C3[Risk Analyzer<br/>Multi-Factor]
+        C4[Term Analyzer]
+        C5[Protection Checker]
+        C6[Market Comparator]
+        C7[LLM Interpreter]
+        C8[Negotiation Engine]
+        
+        C1 --> C2 --> C3
+    end
+    
+    subgraph D[Model Management Layer]
+        D1[Model Registry<br/>Singleton, Thread-Safe]
+        D2[LLM Manager<br/>Multi-Provider]
+        
+        D1_sub[LRU Cache Eviction<br/>GPU/CPU Auto-Detection<br/>Lazy Loading]
+        D2_sub[Ollama Local, Free<br/>Llama.cpp GGUF Models<br/>OpenAI GPT-3.5/4<br/>Anthropic Claude]
+    end
+    
+    subgraph E[AI Models Layer]
+        E1[Legal-BERT<br/>nlpaueb/legal-bert-base-uncased<br/>110M parameters]
+        E2[Sentence-BERT<br/>all-MiniLM-L6-v2<br/>22M parameters]
+    end
+    
+    A -- REST API --> B
+    B -- Data Flow --> C
+    C -- Model Requests --> D
+    D -- Model Loading --> E
+    
+    %% Styling for better readability
+    classDef client fill:#e1f5fe,stroke:#01579b
+    classDef backend fill:#f3e5f5,stroke:#4a148c
+    classDef service fill:#e8f5e8,stroke:#1b5e20
+    classDef model fill:#fff3e0,stroke:#e65100
+    classDef ai fill:#fce4ec,stroke:#880e4f
+    
+    class A1,A2,A3,A4 client
+    class B1,B2,B3 backend
+    class C1,C2,C3,C4,C5,C6,C7,C8 service
+    class D1,D2 model
+    class E1,E2 ai
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Client Layer                           │
-│  (Browser / Mobile / CLI / API Client)                      │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ REST API
-┌──────────────────────▼──────────────────────────────────────┐
-│                  FastAPI Backend                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Routes: /analyze, /jobs/{id}, /validate, /health    │  │
-│  │ Async Processing: BackgroundTasks + Job Queue       │  │
-│  │ Middleware: CORS, Error Handling, Logging           │  │
-│  └──────────────────────────────────────────────────────┘  │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│              Services Orchestration Layer                   │
-│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐   │
-│  │ Classifier  │──▶│ Clause       │──▶│ Risk Analyzer   │   │
-│  │ (Legal-BERT)│  │ Extractor    │  │ (Multi-Factor)  │   │
-│  └─────────────┘  └──────────────┘  └─────────────────┘   │
-│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐   │
-│  │ Term        │  │ Protection   │  │ Market          │   │
-│  │ Analyzer    │  │ Checker      │  │ Comparator      │   │
-│  └─────────────┘  └──────────────┘  └─────────────────┘   │
-│  ┌─────────────┐  ┌──────────────┐                         │
-│  │ LLM         │  │ Negotiation  │                         │
-│  │ Interpreter │  │ Engine       │                         │
-│  └─────────────┘  └──────────────┘                         │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│                Model Management Layer                       │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ Model Registry (Singleton, Thread-Safe)             │   │
-│  │ - LRU Cache Eviction                                │   │
-│  │ - GPU/CPU Auto-Detection                            │   │
-│  │ - Lazy Loading                                      │   │
-│  └─────────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ LLM Manager (Multi-Provider)                        │   │
-│  │ - Ollama (Local, Free)                              |   |
-|  | - Llama.cpp (GGUF Models, CPU/GPU)                  │   │
-│  │ - OpenAI (GPT-3.5/4)                                │   │
-│  │ - Anthropic (Claude)                                │   │
-│  │ - Auto-Fallback & Rate Limiting                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│                   AI Models Layer                           │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Legal-BERT (nlpaueb/legal-bert-base-uncased)        │  │
-│  │ - Domain-adapted BERT for legal text                │  │
-│  │ - 110M parameters, 768-dim embeddings               │  │
-│  │ - Fine-tuned on 12GB legal corpus                   │  │
-│  └──────────────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Sentence-BERT (all-MiniLM-L6-v2)                    │  │
-│  │ - 22M parameters, 384-dim embeddings                │  │
-│  │ - Semantic similarity engine                        │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
 
 ### Integrated Analysis Pipeline Flowchart
 
@@ -598,6 +592,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## 👥 Author
+
+Satyaki Mitra
+Data Scientist | AI-ML Enthusiast
+
+---
+
 ## 🙏 Acknowledgments
 
 ### Research & Models
@@ -642,7 +643,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ by the Itobuz Technologies Private Limited**
+Built with ❤️ for democratizing legal intelligence **
 
 • [Documentation](docs/API_DOCUMENTATION.md) 
 • [Blog](docs/BLOGPOST.md)
@@ -650,6 +651,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 </div>
 
 ---
+
+
 
 > *© 2025 ContractIntel AI. Making legal intelligence accessible to everyone.*
 
