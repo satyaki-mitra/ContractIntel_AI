@@ -226,7 +226,7 @@ class LLMClauseInterpreter:
                                                                              provider           = provider,
                                                                              temperature        = 0.3,
                                                                              max_tokens         = 1200,
-                                                                             fallback_providers = [LLMProvider.LLAMA_CPP, LLMProvider.OPENAI, LLMProvider.ANTHROPIC],
+                                                                             #fallback_providers = [LLMProvider.LLAMA_CPP, LLMProvider.OPENAI, LLMProvider.ANTHROPIC],
                                                                             )
             
             # Calculate negotiation priority

@@ -1,6 +1,6 @@
-# AI Contract Risk Analyzer API Documentation
+# ContractIntel AI API Documentation
 
-This document details the REST API endpoints for the AI Contract Risk Analyzer service.
+This document details the REST API endpoints for the ContractIntel AI service.
 
 **Base URL:** `http://<your-host>:<your-port>/api/v1` (e.g., `http://localhost:8000/api/v1`)
 

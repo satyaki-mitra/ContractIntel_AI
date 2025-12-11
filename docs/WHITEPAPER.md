@@ -1,10 +1,10 @@
-# AI Contract Risk Analyzer: Technical Whitepaper
+# ContractIntel AI: Technical Whitepaper
 
 **Version 1.0 | November 2025**
 
 ## Abstract
 
-This whitepaper introduces the AI Contract Risk Analyzer, a production-scale system that achieves expert-level contract analysis through a novel multi-model architecture combining domain-adapted language models, semantic reasoning, and ensemble learning. Our system demonstrates 94% agreement with licensed attorneys while processing contracts in under 30 seconds—bridging the gap between legal expertise and accessibility. The architecture introduces several innovations: a hybrid clause extraction algorithm handling both structured and unstructured contracts, a multi-factor risk scoring system with contract-type-specific weighting, and a provider-agnostic LLM framework ensuring 99.9% availability. Validation across 200 professionally reviewed contracts shows superior performance to existing approaches, with particular strength in identifying cross-clause inconsistencies and missing protections that often escape manual review.
+This whitepaper introduces the **ContractIntel AI**, a production-scale system that achieves expert-level contract analysis through a novel multi-model architecture combining domain-adapted language models, semantic reasoning, and ensemble learning. Our system demonstrates 94% agreement with licensed attorneys while processing contracts in under 30 seconds—bridging the gap between legal expertise and accessibility. The architecture introduces several innovations: a hybrid clause extraction algorithm handling both structured and unstructured contracts, a multi-factor risk scoring system with contract-type-specific weighting, and a provider-agnostic LLM framework ensuring 99.9% availability. Validation across 200 professionally reviewed contracts shows superior performance to existing approaches, with particular strength in identifying cross-clause inconsistencies and missing protections that often escape manual review.
 
 **Keywords**: Legal AI, Contract Analysis, Legal-BERT, Risk Assessment, Natural Language Processing, Document Intelligence
 
@@ -1092,7 +1092,7 @@ aws ecs create-service --cluster contract-analyzer-cluster \
 
 ### 9.1 Summary of Contributions
 
-This work presents the AI Contract Risk Analyzer, a production-grade system that democratizes access to contract risk assessment through sophisticated AI techniques. Our key contributions include:
+This work presents the ContractIntel AI, a production-grade system that democratizes access to contract risk assessment through sophisticated AI techniques. Our key contributions include:
 
 1. **Multi-Model Architecture**: Novel combination of Legal-BERT for clause understanding, sentence embeddings for semantic similarity, and LLM integration for natural language generation.
 

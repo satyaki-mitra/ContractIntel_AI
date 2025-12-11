@@ -1,5 +1,5 @@
 ---
-title: AI Contract Risk Analyzer
+title: ContractIntel AI
 emoji: 📝
 colorFrom: blue
 colorTo: purple
@@ -11,7 +11,7 @@ license: mit
 
 <div align="center">
 
-# AI Contract Risk Analyzer 🤖⚖️
+# ContractIntel AI ⚖️
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
@@ -41,7 +41,7 @@ license: mit
 
 ## 🎯 Overview
 
-The AI Contract Risk Analyzer is a production-grade legal document analysis platform that leverages state-of-the-art NLP and machine learning to provide instant, comprehensive contract risk assessment. Built with a unified orchestration architecture, it integrates Legal-BERT for clause understanding, semantic embeddings for similarity matching, and LLMs for natural language explanations.
+The ContractIntel AI is a MVP-grade legal document analysis platform that leverages state-of-the-art NLP and machine learning to provide instant, comprehensive contract risk assessment. Built with a unified orchestration architecture, it integrates Legal-BERT for clause understanding, semantic embeddings for similarity matching, and LLMs for natural language explanations.
 
 ### Key Features
 
@@ -346,7 +346,7 @@ nano .env
 
 ```env
 # .env file
-APP_NAME="AI Contract Risk Analyzer"
+APP_NAME="ContractIntel AI"
 HOST="0.0.0.0"
 PORT=8000
 
@@ -651,6 +651,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-> *© 2025 AI Contract Risk Analyzer. Making legal intelligence accessible to everyone.*
+> *© 2025 ContractIntel AI. Making legal intelligence accessible to everyone.*
 
 ---
