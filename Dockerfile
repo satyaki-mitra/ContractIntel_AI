@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV DOCKER_CONTAINER=true  
 ENV SPACE_APP_DATA=/data
-ENV HF_HOME=/data/huggingface  # For HF cache
+ENV HF_HOME=/data/huggingface
 
 # Optimize llama-cpp-python build for CPU only
 ENV CMAKE_ARGS="-DLLAMA_BLAS=0 -DLLAMA_CUBLAS=0"
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libmagic1 \
     curl \
-    git \               # ← ADD for potential git operations
+    git \             
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -44,7 +44,7 @@ COPY . .
 RUN chmod -R 755 /app && \
     chmod -R 755 /data
 
-# Health check (remove if you don't have /health endpoint)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:7860/docs || exit 1  # Changed to /docs endpoint
 
