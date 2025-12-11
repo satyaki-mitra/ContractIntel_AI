@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     ANTHROPIC_MAX_TOKENS   : int                                                = 1024
 
     # Priority order for LLM providers
-    LLM_PROVIDER_PRIORITY  : list                                               = ["ollama", "openai", "anthropic", "llama_cpp"]
+    LLM_PROVIDER_PRIORITY  : list                                               = ["llama_cpp", "ollama", "openai", "anthropic", ]
     
     # Which providers are available
     ENABLE_OLLAMA          : bool                                               = True
@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     ENABLE_HF_INFERENCE    : bool                                               = False  # HuggingFace Inference API
 
     # Default provider (auto-selected based on environment)
-    LLM_DEFAULT_PROVIDER   : str                                                = "ollama"
+    LLM_DEFAULT_PROVIDER   : str                                                = "llama_cpp"
     
     # Huggingface Inference Settings (Optional)
     HF_MODEL_ID            : Optional[str]                                      = None   # e.g. "meta-llama/Llama-2-7b-chat-hf"
@@ -234,12 +234,12 @@ class Settings(BaseSettings):
             return priority if priority else ["ollama"]
     
 
-    @field_validator('LLM_DEFAULT_PROVIDER', mode='after')
+    @field_validator('LLM_DEFAULT_PROVIDER', mode = 'after')
     def set_default_provider(cls, v, info):
         """
         Set default provider based on availability
         """
-        values = info.data
+        values   = info.data
         
         # Get the priority list (after adjustments)
         priority = values.get('LLM_PROVIDER_PRIORITY', [])

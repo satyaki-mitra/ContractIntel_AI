@@ -29,7 +29,7 @@ class LLMClauseInterpreter:
     """
     Uses LLM to generate plain-English explanations for legal clauses and integrated with RiskAnalyzer results and RiskRules framework
     """
-    def __init__(self, llm_manager: LLMManager, default_provider: LLMProvider = LLMProvider.OLLAMA):
+    def __init__(self, llm_manager: LLMManager, default_provider: LLMProvider = None):
         """
         Initialize LLM interpreter
         
