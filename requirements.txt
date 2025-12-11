@@ -1,52 +1,54 @@
-# Core Framework
-fastapi>=0.104.1
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-pydantic-settings>=2.1.0
-python-multipart>=0.0.6
+# Core
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-multipart
 
-# CPU-Optimized AI libraries: Force CPU-only PyTorch (lightweight)
+# CPU-only PyTorch
 torch==2.2.0+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-transformers>=4.35.0
-sentence-transformers>=2.2.2
-tokenizers>=0.14.0
-safetensors>=0.4.0
-accelerate>=0.24.0
+# Embeddings / Transformers
+transformers
+sentence-transformers
+tokenizers
+safetensors
+accelerate
 
-# Local LLM (prebuilt wheel)
-llama-cpp-python==0.2.79
+# Local LLM (prebuilt wheels)
+llama-cpp-python==0.2.65
 
-# Data & Utils
-numpy>=1.24.0
-pandas>=2.1.0
-scipy>=1.11.0
-tqdm>=4.66.0
-python-dateutil>=2.8.0
-typing-extensions>=4.8.0
-anyio>=3.7.0
-orjson>=3.9.0
-psutil>=5.9.5
-chardet>=5.0.0
-langdetect>=1.0.9
+# Data
+numpy
+pandas
+scipy
 
-# NLP (no transformers)
-spacy>=3.7.0
-blis>=0.7.10
+# NLP
+spacy
+blis
 
-# PDF & Docs Processing
-reportlab>=4.0.0
-Pillow>=10.0.0
-PyPDF2>=3.0.0
-PyMuPDF>=1.23.0
-python-docx>=1.1.0
+# PDF / DOC
+reportlab
+Pillow
+PyPDF2
+PyMuPDF
+python-docx
 
-# API Clients
-openai>=1.0.0
-anthropic>=0.5.0
-requests>=2.31.0
+# APIs
+openai
+anthropic
+requests
 
+# HF
+huggingface-hub
 
-# HF hub
-huggingface-hub>=0.19.0
+# Utils
+chardet
+langdetect
+tqdm
+python-dateutil
+typing-extensions
+anyio
+orjson
+psutil

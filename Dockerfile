@@ -1,40 +1,29 @@
-# Base Image (HF-recommended for Python apps)-
-FROM python:3.10-slim
+FROM python:3.10-slim-bullseye
 
-# Prevent Python from writing .pyc files
-ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-    
-# Reduce pip cache to save space on HF Spaces
 ENV PIP_NO_CACHE_DIR=1
 
-# System Dependencies
+WORKDIR /app
+
+# System deps (lightweight)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    pkg-config \
-    libpoppler-cpp-dev \
     libglib2.0-0 \
-    libjpeg-dev \
-    libpng-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    libjpeg62-turbo \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy App Code
-WORKDIR /app
-COPY . /app
-    
-# Python Dependencies
 COPY requirements.txt /app/requirements.txt
-    
-# Upgrade pip
-RUN pip install --upgrade pip
-    
-# Install requirements
-RUN pip install -r /app/requirements.txt
-    
-# Download spaCy model (CPU-friendly)
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Download spaCy model
 RUN python -m spacy download en_core_web_sm
 
-# Expose & Run
+COPY . .
+
 EXPOSE 7860
-    
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]    
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
