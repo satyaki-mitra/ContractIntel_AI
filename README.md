@@ -30,7 +30,9 @@ license: mit
 
 Comprehensive contract risk analysis using an integrated pipeline with Legal-BERT, multi-model NLP, and LLM interpretation
 
-> **⚠️ Important Disclaimer**: This tool provides AI-assisted contract analysis and is not a substitute for professional legal advice. Always consult a qualified attorney for legal matters. The AI may produce inaccurate or incomplete analyses.
+> **⚠️ Important Disclaimer** 
+
+This tool provides AI-assisted contract analysis and is not a substitute for professional legal advice. Always consult a qualified attorney for legal matters. The AI may produce inaccurate or incomplete analyses.
 
 </div>
 
