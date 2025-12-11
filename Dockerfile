@@ -39,8 +39,8 @@ EXPOSE 7860
 
 # Environment variables for CPU-only operation
 ENV LLAMA_CPP_N_GPU_LAYERS=0
-ENV CUDA_VISIBLE_DEVICES=""  # Disable CUDA for free tier
-ENV OMP_NUM_THREADS=4        # Optimize for CPU
+ENV CUDA_VISIBLE_DEVICES=""  
+ENV OMP_NUM_THREADS=4        
 ENV NUMEXPR_MAX_THREADS=4
 
 # HEALTH CHECK for HF Spaces
